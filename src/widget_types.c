@@ -2,7 +2,7 @@
 
 #include <string.h>
 
-// Descriptors are what an editor builds its forms from; config_parse enforces the same rules.
+// Descriptors tell tools and AI assistants what each widget takes; config_parse enforces the same rules.
 #define BINDING_VALUE \
     "\"value\":{\"required\":true,\"props\":{" \
         "\"path\":{\"type\":\"string\",\"required\":true}," \
