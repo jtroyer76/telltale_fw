@@ -98,7 +98,7 @@ Example: [`examples/sailboat.json`](examples/sailboat.json), the screens for the
 
 `sh test/host/run.sh` builds and runs the host tests (config parsing and validation, zones, units, Signal K timestamps) with the system C compiler.
 
-Changes go to `main` through pull requests. Every pull request builds the firmware and runs the host tests (`.github/workflows/ci.yml`), and must pass before it merges. A change that adds behaviour should add host tests for it where it can.
+Changes go to `main` through pull requests. Every pull request builds the firmware and runs the host tests (`.github/workflows/ci.yml`), and must pass before it merges. A change that adds behaviour should add host tests for it where it can. How to contribute: [CONTRIBUTING.md](CONTRIBUTING.md); AI agents start at [AGENTS.md](AGENTS.md).
 
 Desk testing away from the boat: run `python tools/sk_relay.py --listen 3001 --target <server>:80` on a PC that can reach the Signal K server, and set the display's Signal K server to that PC on the setup page (or `SK_HOST_OVERRIDE` / `SK_PORT_OVERRIDE` in `secrets.h`).
 
@@ -107,6 +107,8 @@ Board code in `src/board/` is adapted from Waveshare's ESP32-S3-Touch-LCD-7 demo
 ## Hardware
 
 First board profile: Waveshare ESP32-S3-Touch-LCD-7 (800×480). Details and power notes: SPEC §3.
+
+Your board isn't supported? [docs/ADDING_A_BOARD.md](docs/ADDING_A_BOARD.md) says what a board needs and what a PR adding one must show.
 
 ## Data source
 
