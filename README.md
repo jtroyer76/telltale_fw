@@ -14,11 +14,11 @@ Screenshots taken from the display itself (`telltale.py screenshot`), 800×480, 
 
 | | |
 |---|---|
-| ![Boat health](docs/img/health.png) | ![Power](docs/img/power.png) |
+| <img src="docs/img/health.png" alt="Boat health" width="400"> | <img src="docs/img/power.png" alt="Power" width="400"> |
 | **Boat health:** battery ring, readings, alerts. Values that stop updating grey out (Outside). | **Power:** a bar for solar, a `state` widget for the charger mode, alerts filtered to `electrical`. |
-| ![Anchor view](docs/img/anchor.png) | ![Anchor alarm](docs/img/anchor-alarm.png) |
+| <img src="docs/img/anchor.png" alt="Anchor view" width="400"> | <img src="docs/img/anchor-alarm.png" alt="Anchor alarm" width="400"> |
 | **At anchor:** the swing trail (12 h, fading with age, refilled from Signal K history after a restart), the alarm circle, and the boat on its heading. Beside it, the tide curve for the next 18 h with highs, lows and the lowest low ahead. | **Dragging:** the circle and boat turn red with the anchor alarm's own message (hoekens-anchor-alarm). |
-| ![Sail](docs/img/sail.png) | ![Weather](docs/img/weather.png) |
+| <img src="docs/img/sail.png" alt="Sail" width="400"> | <img src="docs/img/weather.png" alt="Weather" width="400"> |
 | **Sail:** wind, depth, heading and speeds. Degrees sit on the number; other units sit in the corner. | **Weather:** a long reading steps down a size to fit its card. |
 
 Screens switch by themselves with the boat's state (`navigation.state`: moored, anchored, sailing...), and a swipe overrides that for a while.
@@ -27,7 +27,7 @@ Screens switch by themselves with the boat's state (`navigation.state`: moored, 
 
 | | |
 |---|---|
-| ![Navigation](docs/img/builtin-nav.png) | ![Wind and water](docs/img/builtin-wind.png) |
+| <img src="docs/img/builtin-nav.png" alt="Navigation" width="400"> | <img src="docs/img/builtin-wind.png" alt="Wind and water" width="400"> |
 
 **Also:**
 - **Setup from a phone:** with no WiFi saved, the display shows QR codes to join its own hotspot and open a setup page.
@@ -37,7 +37,7 @@ Screens switch by themselves with the boat's state (`navigation.state`: moored, 
 
 | | |
 |---|---|
-| ![Settings](docs/img/settings.png) | **Settings:** the gear on any screen opens it. Show reveals the device password, needed to change settings or update from another computer; Change WiFi brings up the setup hotspot. |
+| <img src="docs/img/settings.png" alt="Settings" width="400"> | **Settings:** the gear on any screen opens it. Show reveals the device password, needed to change settings or update from another computer; Change WiFi brings up the setup hotspot. |
 
 ## Building
 
@@ -57,7 +57,7 @@ With no WiFi saved, the display shows **Set up WiFi** with two QR codes. Join it
 
 | | |
 |---|---|
-| ![Set up WiFi](docs/img/setup.png) | **Set up WiFi:** scan the left code to join the hotspot, then the right one to open the setup page. The hotspot's password is new at each restart. Cancel goes back to the saved network. |
+| <img src="docs/img/setup.png" alt="Set up WiFi" width="400"> | **Set up WiFi:** scan the left code to join the hotspot, then the right one to open the setup page. The hotspot's password is new at each restart. Cancel goes back to the saved network. |
 
 Later, the gear at the top right of the screen opens Settings. It shows the address, the device password, Change WiFi and Restart. On the boat network the setup page is at `http://telltale.local/`, and saving there needs the device password. Details: SPEC §5.6.
 
