@@ -55,6 +55,10 @@ The web flasher on this repo's GitHub Pages site installs the latest release fro
 
 With no WiFi saved, the display shows **Set up WiFi** with two QR codes. Join its hotspot (`Telltale-XXXX`) with a phone. The setup page opens by itself, or go to `http://192.168.4.1`. Choose the boat's network, and optionally a Signal K server and a device password.
 
+| | |
+|---|---|
+| ![Set up WiFi](docs/img/setup.png) | **Set up WiFi:** scan the left code to join the hotspot, then the right one to open the setup page. The hotspot's password is new at each restart. Cancel goes back to the saved network. |
+
 Later, the gear at the top right of the screen opens Settings. It shows the address, the device password, Change WiFi and Restart. On the boat network the setup page is at `http://telltale.local/`, and saving there needs the device password. Details: SPEC §5.6.
 
 ## Updating over WiFi
