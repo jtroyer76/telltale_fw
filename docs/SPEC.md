@@ -354,7 +354,7 @@ Telltale shows Signal K alarms, lets you acknowledge them, and decides how loudl
 - **Escalation ladder:** start gentle; no acknowledgement in N minutes → louder / more outputs; top severities go straight to everything.
 - **Outputs:** the board has no buzzer or audio amp and almost no free GPIO. Use an **RS485 relay module** on the RS485 terminal (GPIO15/16): long cable runs, relays wherever the sounders are. Planned channels on the first boat: (1) quiet piezo near the display for night; (2) dry contact onto the high-water alarm's line (a horn/strobe box with fail-safe timed mute) — wired **in parallel** with the high-water float, closed only for `emergency` severity and held closed. Which alarm it is shows on Telltale's screen. **(verify)** the RS485 relay module's protocol (likely Modbus RTU) once one is chosen.
 - **Pi speaker:** the test server has `signalk-notification-player` (`digital.notificationPlayer.{silence,resolve,disable}`); Telltale could mute it at night. **(verify)** that those paths accept writes and what they do.
-- **First worked example — bilge** (N2k.BilgeMonitor, not installed): normal pump runs → screen only, no sound; `notifications.environment.bilge.main.currentRunDuration` (long run) → alarm; runs-per-hour → alarm only if it is raised as a Signal K notification (a Grafana-only alert won't reach Telltale); bilge data stale → "bilge monitor offline" alarm.
+- **First worked example — bilge** (a bilge pump monitor publishing to Signal K): normal pump runs → screen only, no sound; `notifications.environment.bilge.main.currentRunDuration` (long run) → alarm; runs-per-hour → alarm only if it is raised as a Signal K notification (a Grafana-only alert won't reach Telltale); bilge data stale → "bilge monitor offline" alarm.
 
 ### Backlog
 
@@ -366,8 +366,6 @@ Graph/sparkline, night mode (red, dimmed), compass/wind, config pull from Signal
 
 6. Grid size default and minimum widget size for readability at 800×480.
 7. 12 V → 5 V supply and mounting location.
-9. Missing from Signal K on 2026-10-27: outside RuuviTag, MultiPlus, B2B, arch solar MPPT. SmartShunt and fridge tag updates gap for 7–16 min at a time (BLE reception).
-10. Page schema: consider adopting Navura's (`plotter_app`) page/widget JSON (`PageModel`, `WidgetPlacement`, `WidgetConfig`) so Navura's page editor can design Telltale screens. Schema only — Navura is proprietary, no code shared.
 
 ### Resolved
 
