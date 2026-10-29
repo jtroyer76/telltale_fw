@@ -51,7 +51,7 @@ Run each of these on the real board and put the results in the PR. `tools/tellta
 | Screens | `python tools/telltale.py <ip> screenshot nav.png 0` (and each screen) | Text fits its cards; attach the PNGs |
 | Touch | swipe between screens; tap the gear | Screen changes; Settings opens (attach a screenshot of it) |
 | WiFi | leave it running 30 min, then `status` | `wifi_drops` is 0. RGB panels can radiate into the antenna: see SPEC §5.5 |
-| Memory | `status` after 30 min | Report `free_internal` and `free_psram`. Internal RAM is tight (about 25 KB free on `lcd7`) |
+| Memory | `status` after 30 min, and with the setup hotspot on and a phone joined | Report `free_internal`, `free_dma`, `largest_dma`, `min_free_dma` and `free_psram`. WiFi needs DMA-capable internal RAM; on `lcd7` about 58 KB is free, and the hotspot with a phone joined takes 12–15 KB more |
 | Update | `pio run -e <id>-ota -t upload --upload-port <ip>` | Restarts into the new build; `GET /api/info` shows it. The screen must not flicker while it writes |
 
 Say plainly what you didn't test, and why.

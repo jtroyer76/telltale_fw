@@ -40,6 +40,15 @@ jobs:
       - name: Build
         run: pio run -e lcd7
 
+      # LVGL's heap must stay in PSRAM (src/lv_mem_psram.h): in internal RAM it leaves WiFi too
+      # little for a phone to join the setup hotspot.
+      - name: LVGL heap in PSRAM
+        run: |
+          syms=$(~/.platformio/packages/toolchain-xtensa-esp-elf/bin/xtensa-esp32s3-elf-nm -u \
+                 .pio/build/lcd7/managed_components/lvgl__lvgl/src/misc/lv_mem.c.o)
+          echo "$syms" | grep -qw heap_caps_malloc
+          ! echo "$syms" | grep -qw malloc
+
       # After the build: the host tests use the cJSON that PlatformIO installs.
       - name: Host tests
         run: sh test/host/run.sh
