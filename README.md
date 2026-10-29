@@ -49,7 +49,7 @@ Requires PlatformIO. ESP-IDF 5.5.0 is pulled in by the pinned platform (`espress
 
 ## Installing a release
 
-The web flasher on this repo's GitHub Pages site installs the latest release from Chrome or Edge over USB. Releases also carry `telltale-<ver>-full.bin`, which esptool writes at `0x0`. A release build, tagged `v*`, is made by `.github/workflows/release.yml`.
+**Web flasher: https://jtroyer76.github.io/telltale_fw/**. It installs the latest release from Chrome or Edge over USB, with no GitHub account needed. Releases are also listed under [Releases](https://github.com/jtroyer76/telltale_fw/releases). Releases also carry `telltale-<ver>-full.bin`, which esptool writes at `0x0`. A release build, tagged `v*`, is made by `.github/workflows/release.yml`.
 
 ## Setting up a display
 
