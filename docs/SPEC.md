@@ -70,7 +70,7 @@ A bulkhead visible from where people come and go. Near a companionway the enclos
 
 ### 3.4 Other boards
 
-Each new board is a new profile (§5.1). No screen config changes.
+Each new board is a new profile (§5.1). No screen config changes. How to add one, and what the PR must show: [ADDING_A_BOARD.md](ADDING_A_BOARD.md).
 
 ## 4. Design rules
 
