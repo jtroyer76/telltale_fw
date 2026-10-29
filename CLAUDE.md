@@ -6,6 +6,7 @@ Firmware for a Signal K touch display with screens from a JSON config. Start wit
 
 - **Pull requests only.** Branch from `main`, one topic per PR. CI (`.github/workflows/ci.yml`) builds the firmware and runs the host tests, and must pass. The assistant opens PRs and keeps them passing; the owner reviews and merges. Never approve or merge a PR, never push to `main`.
 - **Tests with behaviour.** A change that adds or fixes behaviour adds host tests (`test/host/`) where it can.
+- **Standalone product.** This repo stands on its own: don't reference the owner's other repos or projects.
 - **Stay general.** This is a public product, not one boat's project: no boat names, server hostnames or boat-specific details in docs, examples, test data or screenshots. "Tested on a boat" is fine.
 - **No AI attribution** in commits or PRs (no Co-Authored-By lines).
 - **Never guess** specs, part numbers, API behaviour or other facts; check the source, a datasheet or the device, or say it's unknown. Mark unchecked claims in the SPEC **(verify)**.
