@@ -85,6 +85,8 @@ Example: [`examples/sailboat.json`](examples/sailboat.json), the screens for the
 
 `sh test/host/run.sh` builds and runs the host tests (config parsing and validation, zones, units, Signal K timestamps) with the system C compiler.
 
+Changes go to `main` through pull requests. Every pull request builds the firmware and runs the host tests (`.github/workflows/ci.yml`), and must pass before it merges. A change that adds behaviour should add host tests for it where it can.
+
 Desk testing away from the boat: run `python tools/sk_relay.py --listen 3001 --target <server>:80` on a PC that can reach the Signal K server, and set the display's Signal K server to that PC on the setup page (or `SK_HOST_OVERRIDE` / `SK_PORT_OVERRIDE` in `secrets.h`).
 
 Board code in `src/board/` is adapted from Waveshare's ESP32-S3-Touch-LCD-7 demo (Espressif example code, CC0-1.0 and Apache-2.0 — headers kept).

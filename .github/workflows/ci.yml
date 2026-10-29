@@ -1,0 +1,45 @@
+# On every pull request and push to main: build the firmware and run the host tests.
+# Pull requests need this check to pass before they merge (branch protection on main).
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0          # git describe gives the firmware its version
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - uses: actions/cache@v6
+        with:
+          path: ~/.platformio
+          key: pio-${{ hashFiles('platformio.ini', 'dependencies.lock') }}
+
+      - name: Install PlatformIO
+        run: pip install platformio
+
+      - name: No credentials in the build
+        run: test ! -e src/secrets.h
+
+      - name: Build
+        run: pio run -e lcd7
+
+      # After the build: the host tests use the cJSON that PlatformIO installs.
+      - name: Host tests
+        run: sh test/host/run.sh
