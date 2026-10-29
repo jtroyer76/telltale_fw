@@ -5,7 +5,7 @@
 //   POST   /api/config/validate  validate only
 //   GET    /api/config/lkg       the last-known-good config, 404 if none
 //   DELETE /api/config           forget saved configs, run the built-in one       [password]
-//   GET    /api/widgets          widget descriptors (for an editor)
+//   GET    /api/widgets          widget descriptors (for tools and AI assistants)
 //   GET    /api/status           connection, screen, config source, subscribed values
 //   POST   /api/screen?index=N   show screen N
 //   POST   /api/restart                                                           [password]

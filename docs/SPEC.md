@@ -11,7 +11,7 @@ A wall- or bulkhead-mounted touch display that shows Signal K data on screens de
 ### Goals
 
 - **Config-driven.** Screens, widgets, paths, units, thresholds, labels and layout come from a JSON config. Adding a screen or changing a path never needs a rebuild.
-- **Editor-ready.** The config format and the widget descriptors (§6.3) are what a future `telltale_editor` uses. Going from hand-written JSON to an editor needs no firmware rewrite.
+- **AI-ready.** Screens are customised by asking an AI assistant, not with an editor app (owner, 2026-10-28). So the config schema, the widget descriptors (§6.3) and the validation messages must be complete enough for an assistant to write a correct config, and `GET /api/screenshot` lets it see the result.
 - **Board-independent screens.** Layout is in grid units, not pixels, so one config can run on different boards.
 - **Honest data.** Missing or stale values are shown as missing or stale, never as zero or the last value.
 - **Signal K is the source of truth** for data, metadata (units, zones) and alarms (notifications).
@@ -21,7 +21,7 @@ A wall- or bulkhead-mounted touch display that shows Signal K data on screens de
 - NMEA 2000 or any data source other than Signal K.
 - Writing to Signal K (no controls, no PUT requests) — except acknowledging and silencing notifications (Phase 5).
 - Long-term history (InfluxDB). Graphs only keep what the device saw since boot.
-- The editor itself (separate repo, later).
+- A screen editor app. AI assistants write the config (Goals).
 
 ## 2. Key decisions
 
@@ -33,7 +33,7 @@ A wall- or bulkhead-mounted touch display that shows Signal K data on screens de
 | Layout units | Grid cells per screen | Same config scales to other resolutions |
 | Subscriptions | Only the paths the visible screen (and any background widgets) need | Keeps WiFi and server load low; same idea as Marine-Displays |
 | Units and thresholds | From Signal K metadata by default, overridable in config | One place to set alarm limits (the server) |
-| Config schema | [`docs/config.schema.json`](config.schema.json) in this repo; the firmware's checks (`src/config.c`) are the reference | Moves to its own repo only if the editor needs it |
+| Config schema | [`docs/config.schema.json`](config.schema.json) in this repo; the firmware's checks (`src/config.c`) are the reference | One place for the firmware's rules and the docs an AI assistant reads |
 | Framework | ESP-IDF 5.5.0 via PlatformIO (`espressif32@6.12.0`), LVGL 8.4.0 | Waveshare's LVGL demo for this board is ESP-IDF (Espressif RGB panel example, bounce buffer + anti-tear tuned); IDF has WebSocket client, HTTP server, cJSON, OTA built in. Platform 7.x/8.x moves to IDF 6.1 — not tried; the board code uses the legacy I2C driver |
 | License | MIT | |
 
@@ -185,7 +185,7 @@ Tested on the desk (2026-10-28):
 - `config.json` on the device filesystem (LittleFS on the `storage` partition, mounted at `/data`; LittleFS survives power loss mid-write). `config.lkg.json` is the config that was running before the last change.
 - The built-in config (`data/default_config.json`) runs when nothing is saved. It's generic for any boat: standard Signal K paths only (navigation, wind and water, and all notifications), no units given so the server's display units apply, and the server found by mDNS. Battery, solar and similar names differ from boat to boat, so they belong in a boat's own config (e.g. `examples/sailboat.json`).
 - Upload raw JSON over HTTP (§6.4); `tools/telltale.py` wraps the API.
-- Later: optionally pull config from the Signal K server so one editor can manage several displays. **(verify)** whether Signal K's application data storage fits this.
+- Later: optionally pull config from the Signal K server so several displays can share one config. **(verify)** whether Signal K's application data storage fits this.
 
 ### 6.2 Shape (example, not final)
 
@@ -235,7 +235,7 @@ Rules (built and checked by `config_parse`, mirrored in `docs/config.schema.json
 
 ### 6.3 Widget descriptors
 
-`GET /api/widgets` returns every registered type with its props, bindings, types, defaults and allowed values. The editor builds its forms from this; the firmware validates config against the same rules.
+`GET /api/widgets` returns every registered type with its props, bindings, types, defaults and allowed values. It's how an AI assistant (or any tool) learns what each widget takes; the firmware validates config against the same rules.
 
 First set:
 
@@ -354,11 +354,11 @@ Telltale shows Signal K alarms, lets you acknowledge them, and decides how loudl
 - **Escalation ladder:** start gentle; no acknowledgement in N minutes → louder / more outputs; top severities go straight to everything.
 - **Outputs:** the board has no buzzer or audio amp and almost no free GPIO. Use an **RS485 relay module** on the RS485 terminal (GPIO15/16): long cable runs, relays wherever the sounders are. Planned channels on the first boat: (1) quiet piezo near the display for night; (2) dry contact onto the high-water alarm's line (a horn/strobe box with fail-safe timed mute) — wired **in parallel** with the high-water float, closed only for `emergency` severity and held closed. Which alarm it is shows on Telltale's screen. **(verify)** the RS485 relay module's protocol (likely Modbus RTU) once one is chosen.
 - **Pi speaker:** the test server has `signalk-notification-player` (`digital.notificationPlayer.{silence,resolve,disable}`); Telltale could mute it at night. **(verify)** that those paths accept writes and what they do.
-- **First worked example — bilge** (N2k.BilgeMonitor, not installed): normal pump runs → screen only, no sound; `notifications.environment.bilge.main.currentRunDuration` (long run) → alarm; runs-per-hour → alarm only if it is raised as a Signal K notification (a Grafana-only alert won't reach Telltale); bilge data stale → "bilge monitor offline" alarm.
+- **First worked example — bilge** (a bilge pump monitor publishing to Signal K): normal pump runs → screen only, no sound; `notifications.environment.bilge.main.currentRunDuration` (long run) → alarm; runs-per-hour → alarm only if it is raised as a Signal K notification (a Grafana-only alert won't reach Telltale); bilge data stale → "bilge monitor offline" alarm.
 
 ### Backlog
 
-Graph/sparkline, night mode (red, dimmed), compass/wind, config pull from Signal K, more board profiles, `telltale_editor`. A visual design pass (layout, type sizes, colours, value placement) once the first boat's screens exist — owner suggests a session with a design agent (2026-10-28). Current layout: small caption top left, reading centred below it; ring and bar tracks a lighter blue than the card. (Screen switching by boat state is built: §6.6.)
+Graph/sparkline, night mode (red, dimmed), compass/wind, config pull from Signal K, more board profiles. A visual design pass (layout, type sizes, colours, value placement) once the first boat's screens exist — owner suggests a session with a design agent (2026-10-28). Current layout: small caption top left, reading centred below it; ring and bar tracks a lighter blue than the card. (Screen switching by boat state is built: §6.6.)
 
 **BLE gateway mode** (optional, switched on in config): forward raw BLE advertisements to Signal K's BLE API, decoding stays in the server plugins — the role a separate BLE gateway (e.g. an AtomS3) plays. Needs Signal K 2.31+ (the test server is 2.26.0). WiFi and BLE share one radio; check the WiFi impact when built.
 
@@ -366,8 +366,6 @@ Graph/sparkline, night mode (red, dimmed), compass/wind, config pull from Signal
 
 6. Grid size default and minimum widget size for readability at 800×480.
 7. 12 V → 5 V supply and mounting location.
-9. Missing from Signal K on 2026-10-27: outside RuuviTag, MultiPlus, B2B, arch solar MPPT. SmartShunt and fridge tag updates gap for 7–16 min at a time (BLE reception).
-10. Page schema: consider adopting Navura's (`plotter_app`) page/widget JSON (`PageModel`, `WidgetPlacement`, `WidgetConfig`) so Navura's page editor can design Telltale screens. Schema only — Navura is proprietary, no code shared.
 
 ### Resolved
 

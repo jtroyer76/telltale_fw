@@ -2,7 +2,9 @@
 
 Firmware for Telltale: an ESP32-S3 touch display for Signal K data, with screens defined in config.
 
-Nothing about what is shown is compiled in. Screens, widgets, Signal K paths, units, thresholds and layout all come from a JSON config file on the device. The firmware provides the board support, a Signal K client and a registry of widget types; the config puts them together. A later `telltale_editor` will edit the same config.
+Nothing about what is shown is compiled in. Screens, widgets, Signal K paths, units, thresholds and layout all come from a JSON config file on the device. The firmware provides the board support, a Signal K client and a registry of widget types; the config puts them together.
+
+There's no screen editor: describe the screens you want to an AI coding assistant working in this repo, and it writes the config, checks it against the display, sends it and looks at the result (below, [Changing screens](#changing-screens)).
 
 Status: config API, per-screen Signal K subscriptions with metadata, and screen switching by boat state work on the desk; widgets so far: `value`, `ring`, `bar`, `state`, `alert`, `tide`, `anchor`, `label`. Spec and remaining phases: [docs/SPEC.md](docs/SPEC.md).
 
@@ -32,6 +34,10 @@ Screens switch by themselves with the boat's state (`navigation.state`: moored, 
 - **Settings on the display:** the gear at the top right shows the address, signal, Signal K connection, firmware and the device password.
 - **Updates and installs:** firmware updates go over WiFi, with rollback if the new one can't get online. New boards install from the web flasher.
 - **Screens are a JSON file:** sent over WiFi and applied without a restart. A bad one is rejected and the last good one kept.
+
+| | |
+|---|---|
+| ![Settings](docs/img/settings.png) | **Settings:** the gear on any screen opens it. Show reveals the device password, needed to change settings or update from another computer; Change WiFi brings up the setup hotspot. |
 
 ## Building
 
@@ -63,6 +69,17 @@ The status line shows progress. A new image that can't get on WiFi within 5 minu
 ## Changing screens
 
 Screens come from a JSON config (format: SPEC §6, [`docs/config.schema.json`](docs/config.schema.json)). Send it over WiFi; it is checked, saved and shown without a rebuild or reboot. A bad config is rejected with a message and the display keeps what it had.
+
+**With an AI assistant** (the intended way). Open this repo in an AI coding assistant that can run commands, and ask for what you want, for example: *"Add a screen for motoring with RPM, coolant temperature, fuel rate and depth, and switch to it when the boat is motoring."* Everything it needs is here:
+
+- **What the display can show:** `docs/config.schema.json`, SPEC §6, and `GET /api/widgets` on the display (every widget type with its options, defaults and allowed values).
+- **What your boat has:** the Signal K server lists every path with its current value, at `http://<server>/signalk/v1/api/vessels/self`.
+- **A worked example:** [`examples/sailboat.json`](examples/sailboat.json).
+- **A loop to check its work:** `validate` explains anything the firmware would reject, `put-config` applies it, and `screenshot` lets the assistant see the screen as it really looks, so it can fix text that doesn't fit or a layout that's cramped.
+
+Keep your own config in a file of your own (or a private repo) so the next change starts from it.
+
+**By hand**, with the same commands:
 
 ```
 python tools/telltale.py telltale.local validate my_config.json
