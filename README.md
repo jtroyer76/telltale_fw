@@ -35,6 +35,10 @@ Screens switch by themselves with the boat's state (`navigation.state`: moored, 
 - **Updates and installs:** firmware updates go over WiFi, with rollback if the new one can't get online. New boards install from the web flasher.
 - **Screens are a JSON file:** sent over WiFi and applied without a restart. A bad one is rejected and the last good one kept.
 
+| | |
+|---|---|
+| ![Settings](docs/img/settings.png) | **Settings:** the gear on any screen opens it. Show reveals the device password, needed to change settings or update from another computer; Change WiFi brings up the setup hotspot. |
+
 ## Building
 
 Requires PlatformIO. ESP-IDF 5.5.0 is pulled in by the pinned platform (`espressif32@6.12.0`).
