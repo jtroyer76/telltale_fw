@@ -12,22 +12,22 @@ Status: config API, per-screen Signal K subscriptions with metadata, and screen 
 
 Screenshots taken from the display itself (`telltale.py screenshot`), 800×480, with live data from a boat's Signal K server. The anchor shots use a simulated swing and drag, since the boat is at the dock.
 
-| | |
-|---|---|
-| <img src="docs/img/health.png" alt="Boat health" width="400"> | <img src="docs/img/power.png" alt="Power" width="400"> |
-| **Boat health:** battery ring, readings, alerts. Values that stop updating grey out (Outside). | **Power:** a bar for solar, a `state` widget for the charger mode, alerts filtered to `electrical`. |
-| <img src="docs/img/anchor.png" alt="Anchor view" width="400"> | <img src="docs/img/anchor-alarm.png" alt="Anchor alarm" width="400"> |
-| **At anchor:** the swing trail (12 h, fading with age, refilled from Signal K history after a restart), the alarm circle, and the boat on its heading. Beside it, the tide curve for the next 18 h with highs, lows and the lowest low ahead. | **Dragging:** the circle and boat turn red with the anchor alarm's own message (hoekens-anchor-alarm). |
-| <img src="docs/img/sail.png" alt="Sail" width="400"> | <img src="docs/img/weather.png" alt="Weather" width="400"> |
-| **Sail:** wind, depth, heading and speeds. Degrees sit on the number; other units sit in the corner. | **Weather:** a long reading steps down a size to fit its card. |
+<table>
+<tr><td width="50%"><img src="docs/img/health.png" alt="Boat health" width="100%"></td><td width="50%"><img src="docs/img/power.png" alt="Power" width="100%"></td></tr>
+<tr><td width="50%"><b>Boat health:</b> battery ring, readings, alerts. Values that stop updating grey out (Outside).</td><td width="50%"><b>Power:</b> a bar for solar, a <code>state</code> widget for the charger mode, alerts filtered to <code>electrical</code>.</td></tr>
+<tr><td width="50%"><img src="docs/img/anchor.png" alt="Anchor view" width="100%"></td><td width="50%"><img src="docs/img/anchor-alarm.png" alt="Anchor alarm" width="100%"></td></tr>
+<tr><td width="50%"><b>At anchor:</b> the swing trail (12 h, fading with age, refilled from Signal K history after a restart), the alarm circle, and the boat on its heading. Beside it, the tide curve for the next 18 h with highs, lows and the lowest low ahead.</td><td width="50%"><b>Dragging:</b> the circle and boat turn red with the anchor alarm's own message (hoekens-anchor-alarm).</td></tr>
+<tr><td width="50%"><img src="docs/img/sail.png" alt="Sail" width="100%"></td><td width="50%"><img src="docs/img/weather.png" alt="Weather" width="100%"></td></tr>
+<tr><td width="50%"><b>Sail:</b> wind, depth, heading and speeds. Degrees sit on the number; other units sit in the corner.</td><td width="50%"><b>Weather:</b> a long reading steps down a size to fit its card.</td></tr>
+</table>
 
 Screens switch by themselves with the boat's state (`navigation.state`: moored, anchored, sailing...), and a swipe overrides that for a while.
 
 **Built-in screens** for any boat (standard Signal K paths, in the units set on the server, the server found by mDNS):
 
-| | |
-|---|---|
-| <img src="docs/img/builtin-nav.png" alt="Navigation" width="400"> | <img src="docs/img/builtin-wind.png" alt="Wind and water" width="400"> |
+<table>
+<tr><td width="50%"><img src="docs/img/builtin-nav.png" alt="Navigation" width="100%"></td><td width="50%"><img src="docs/img/builtin-wind.png" alt="Wind and water" width="100%"></td></tr>
+</table>
 
 **Also:**
 - **Setup from a phone:** with no WiFi saved, the display shows QR codes to join its own hotspot and open a setup page.
@@ -35,9 +35,9 @@ Screens switch by themselves with the boat's state (`navigation.state`: moored, 
 - **Updates and installs:** firmware updates go over WiFi, with rollback if the new one can't get online. New boards install from the web flasher.
 - **Screens are a JSON file:** sent over WiFi and applied without a restart. A bad one is rejected and the last good one kept.
 
-| | |
-|---|---|
-| <img src="docs/img/settings.png" alt="Settings" width="400"> | **Settings:** the gear on any screen opens it. Show reveals the device password, needed to change settings or update from another computer; Change WiFi brings up the setup hotspot. |
+<img src="docs/img/settings.png" alt="Settings">
+
+**Settings:** the gear on any screen opens it. Show reveals the device password, needed to change settings or update from another computer; Change WiFi brings up the setup hotspot.
 
 ## Building
 
@@ -55,9 +55,9 @@ The web flasher on this repo's GitHub Pages site installs the latest release fro
 
 With no WiFi saved, the display shows **Set up WiFi** with two QR codes. Join its hotspot (`Telltale-XXXX`) with a phone. The setup page opens by itself, or go to `http://192.168.4.1`. Choose the boat's network, and optionally a Signal K server and a device password.
 
-| | |
-|---|---|
-| <img src="docs/img/setup.png" alt="Set up WiFi" width="400"> | **Set up WiFi:** scan the left code to join the hotspot, then the right one to open the setup page. The hotspot's password is new at each restart. Cancel goes back to the saved network. |
+<img src="docs/img/setup.png" alt="Set up WiFi">
+
+**Set up WiFi:** scan the left code to join the hotspot, then the right one to open the setup page. The hotspot's password is new at each restart. Cancel goes back to the saved network.
 
 Later, the gear at the top right of the screen opens Settings. It shows the address, the device password, Change WiFi and Restart. On the boat network the setup page is at `http://telltale.local/`, and saving there needs the device password. Details: SPEC §5.6.
 
