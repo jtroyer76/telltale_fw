@@ -1,6 +1,6 @@
 # telltale_fw
 
-Firmware for a Signal K touch display with screens from a JSON config. Start with [README.md](README.md); the design and its history are in [docs/SPEC.md](docs/SPEC.md).
+Firmware for a Signal K touch display with screens from a JSON config. Start with [README.md](README.md); the design and its history are in [docs/SPEC.md](docs/SPEC.md). [AGENTS.md](AGENTS.md) and [CONTRIBUTING.md](CONTRIBUTING.md) apply too; this file adds the owner's own workflow.
 
 ## Rules
 
