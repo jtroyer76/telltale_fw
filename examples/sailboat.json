@@ -1,0 +1,140 @@
+{
+  "schema_version": 1,
+  "device": { "name": "Nav station", "hostname": "telltale" },
+  "signalk": { "host": "", "port": 80 },
+  "clock": { "offset_path": "environment.time.timezoneOffset", "hour12": true },
+  "auto_screen": {
+    "path": "navigation.state",
+    "screens": { "moored": "health", "anchored": "anchor", "sailing": "sail", "motoring": "sail" },
+    "manual_hold_s": 300
+  },
+  "screens": [
+    {
+      "id": "health",
+      "title": "Boat health",
+      "grid": { "cols": 4, "rows": 3 },
+      "widgets": [
+        { "type": "ring", "at": { "col": 0, "row": 0, "h": 2 }, "label": "Battery", "min": 0, "max": 1,
+          "bind": { "value": { "path": "electrical.batteries.shunt.capacity.stateOfCharge", "unit": "%", "decimals": 0 } } },
+        { "type": "value", "at": { "col": 1, "row": 0 }, "label": "Battery power",
+          "bind": { "value": { "path": "electrical.batteries.shunt.power", "unit": "W", "decimals": 0 } } },
+        { "type": "value", "at": { "col": 2, "row": 0 }, "label": "Time to go",
+          "bind": { "value": { "path": "electrical.batteries.shunt.capacity.timeRemaining", "unit": "h", "decimals": 0 } } },
+        { "type": "value", "at": { "col": 3, "row": 0 }, "label": "Fridge",
+          "bind": { "value": { "path": "environment.fridge.temperature", "unit": "degF", "decimals": 1 } } },
+        { "type": "value", "at": { "col": 1, "row": 1 }, "label": "Battery voltage",
+          "bind": { "value": { "path": "electrical.batteries.shunt.voltage", "unit": "V", "decimals": 2 } } },
+        { "type": "value", "at": { "col": 2, "row": 1 }, "label": "Cabin",
+          "bind": { "value": { "path": "environment.inside.temperature", "unit": "degF", "decimals": 1 } } },
+        { "type": "value", "at": { "col": 3, "row": 1 }, "label": "Outside",
+          "bind": { "value": { "path": "environment.outside.temperature", "unit": "degF", "decimals": 1 } } },
+        { "type": "alert", "at": { "col": 0, "row": 2, "w": 2 }, "label": "Alerts" },
+        { "type": "value", "at": { "col": 2, "row": 2 }, "label": "Cabin humidity",
+          "bind": { "value": { "path": "environment.inside.relativeHumidity", "unit": "%", "decimals": 0 } } },
+        { "type": "value", "at": { "col": 3, "row": 2 }, "label": "Sea temp",
+          "bind": { "value": { "path": "environment.water.temperature", "unit": "degF", "decimals": 1 } } }
+      ]
+    },
+    {
+      "id": "power",
+      "title": "Power",
+      "grid": { "cols": 4, "rows": 3 },
+      "widgets": [
+        { "type": "ring", "at": { "col": 0, "row": 0, "h": 2 }, "label": "Battery", "min": 0, "max": 1,
+          "bind": { "value": { "path": "electrical.batteries.shunt.capacity.stateOfCharge", "unit": "%", "decimals": 0 } } },
+        { "type": "bar", "at": { "col": 1, "row": 0, "w": 2 }, "label": "Dodger solar", "min": 0, "max": 400,
+          "bind": { "value": { "path": "electrical.solar.dodger_solar.panelPower", "unit": "W", "decimals": 0 } } },
+        { "type": "state", "at": { "col": 3, "row": 0 }, "label": "Dodger charger",
+          "states": [
+            { "value": "off", "text": "Not charging" },
+            { "value": "bulk", "text": "Bulk" },
+            { "value": "absorption", "text": "Absorption" },
+            { "value": "float", "text": "Float" },
+            { "value": "storage", "text": "Storage" },
+            { "value": "low_power", "text": "Low power" },
+            { "value": "external_control", "text": "External control" },
+            { "value": "fault", "text": "Fault", "state": "alarm" }
+          ],
+          "bind": { "value": { "path": "electrical.solar.dodger_solar.chargingMode" } } },
+        { "type": "value", "at": { "col": 1, "row": 1 }, "label": "Battery current",
+          "bind": { "value": { "path": "electrical.batteries.shunt.current", "unit": "A", "decimals": 1 } } },
+        { "type": "value", "at": { "col": 2, "row": 1 }, "label": "Battery power",
+          "bind": { "value": { "path": "electrical.batteries.shunt.power", "unit": "W", "decimals": 0 } } },
+        { "type": "value", "at": { "col": 3, "row": 1 }, "label": "Solar today",
+          "bind": { "value": { "path": "electrical.solar.dodger_solar.yieldToday", "unit": "Wh", "decimals": 0 } } },
+        { "type": "value", "at": { "col": 0, "row": 2 }, "label": "Battery voltage",
+          "bind": { "value": { "path": "electrical.batteries.shunt.voltage", "unit": "V", "decimals": 2 } } },
+        { "type": "value", "at": { "col": 1, "row": 2 }, "label": "Time to go",
+          "bind": { "value": { "path": "electrical.batteries.shunt.capacity.timeRemaining", "unit": "h", "decimals": 0 } } },
+        { "type": "alert", "at": { "col": 2, "row": 2, "w": 2 }, "label": "Electrical alerts",
+          "bind": { "notifications": { "prefix": "electrical" } } }
+      ]
+    },
+    {
+      "id": "sail",
+      "title": "Sail",
+      "grid": { "cols": 3, "rows": 3 },
+      "widgets": [
+        { "type": "value", "at": { "col": 0, "row": 0 }, "label": "Apparent wind",
+          "bind": { "value": { "path": "environment.wind.speedApparent", "unit": "kn", "decimals": 1 } } },
+        { "type": "value", "at": { "col": 1, "row": 0 }, "label": "Apparent angle",
+          "bind": { "value": { "path": "environment.wind.angleApparent", "unit": "deg", "decimals": 0 } } },
+        { "type": "value", "at": { "col": 2, "row": 0 }, "label": "Depth below keel",
+          "bind": { "value": { "path": "environment.depth.belowKeel", "unit": "ft", "decimals": 1 } } },
+        { "type": "value", "at": { "col": 0, "row": 1 }, "label": "True wind (ground)",
+          "bind": { "value": { "path": "environment.wind.speedOverGround", "unit": "kn", "decimals": 1 } } },
+        { "type": "value", "at": { "col": 1, "row": 1 }, "label": "True wind direction",
+          "bind": { "value": { "path": "environment.wind.directionTrue", "unit": "deg", "decimals": 0 } } },
+        { "type": "value", "at": { "col": 2, "row": 1 }, "label": "Heading (true)",
+          "bind": { "value": { "path": "navigation.headingTrue", "unit": "deg", "decimals": 0 } } },
+        { "type": "value", "at": { "col": 0, "row": 2 }, "label": "SOG",
+          "bind": { "value": { "path": "navigation.speedOverGround", "unit": "kn", "decimals": 1 } } },
+        { "type": "value", "at": { "col": 1, "row": 2 }, "label": "COG (true)",
+          "bind": { "value": { "path": "navigation.courseOverGroundTrue", "unit": "deg", "decimals": 0 } } },
+        { "type": "value", "at": { "col": 2, "row": 2 }, "label": "Speed through water",
+          "bind": { "value": { "path": "navigation.speedThroughWater", "unit": "kn", "decimals": 1 } } }
+      ]
+    },
+    {
+      "id": "anchor",
+      "title": "At anchor",
+      "grid": { "cols": 4, "rows": 3 },
+      "widgets": [
+        { "type": "anchor", "at": { "col": 0, "row": 0, "w": 2, "h": 3 }, "label": "Anchor", "trail_minutes": 720,
+          "history": "/signalk/v2/api/history/values",
+          "bind": { "value": { "path": "navigation.anchor.currentRadius", "unit": "ft", "decimals": 0 },
+                    "position": { "path": "navigation.position" },
+                    "anchor": { "path": "navigation.anchor.position" },
+                    "radius": { "path": "navigation.anchor.maxRadius" },
+                    "heading": { "path": "navigation.headingTrue" },
+                    "notifications": { "prefix": "navigation.anchor" } } },
+        { "type": "tide", "at": { "col": 2, "row": 0, "w": 2, "h": 2 }, "label": "Tide", "hours": 18,
+          "api": "/signalk/v2/api/tides/stations/vessel/default",
+          "bind": { "value": { "path": "environment.tide.heightNow", "unit": "ft", "decimals": 1 } } },
+        { "type": "value", "at": { "col": 2, "row": 2 }, "label": "Depth (transducer)",
+          "bind": { "value": { "path": "environment.depth.belowTransducer", "unit": "ft", "decimals": 1 } } },
+        { "type": "value", "at": { "col": 3, "row": 2 }, "label": "Wind",
+          "bind": { "value": { "path": "environment.wind.speedApparent", "unit": "kn", "decimals": 1 } } }
+      ]
+    },
+    {
+      "id": "weather",
+      "title": "Weather",
+      "grid": { "cols": 3, "rows": 2 },
+      "widgets": [
+        { "type": "value", "at": { "col": 0, "row": 0 }, "label": "Barometer (cabin)",
+          "bind": { "value": { "path": "environment.inside.pressure", "unit": "hPa", "decimals": 1 } } },
+        { "type": "value", "at": { "col": 1, "row": 0 }, "label": "Outside",
+          "bind": { "value": { "path": "environment.outside.temperature", "unit": "degF", "decimals": 1 } } },
+        { "type": "value", "at": { "col": 2, "row": 0 }, "label": "Outside humidity",
+          "bind": { "value": { "path": "environment.outside.relativeHumidity", "unit": "%", "decimals": 0 } } },
+        { "type": "value", "at": { "col": 0, "row": 1 }, "label": "True wind (ground)",
+          "bind": { "value": { "path": "environment.wind.speedOverGround", "unit": "kn", "decimals": 1 } } },
+        { "type": "value", "at": { "col": 1, "row": 1 }, "label": "True wind direction",
+          "bind": { "value": { "path": "environment.wind.directionTrue", "unit": "deg", "decimals": 0 } } },
+        { "type": "value", "at": { "col": 2, "row": 1 }, "label": "Sea temp",
+          "bind": { "value": { "path": "environment.water.temperature", "unit": "degF", "decimals": 1 } } }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,9 @@
+.pio/
+.vscode/
+*.o
+*.obj
+include/secrets.h
+src/secrets.h
+sdkconfig.*
+!sdkconfig.defaults
+managed_components/

@@ -1,0 +1,44 @@
+{
+  "schema_version": 1,
+  "device": { "name": "Telltale", "hostname": "telltale" },
+  "signalk": { "host": "", "port": 80 },
+  "screens": [
+    {
+      "id": "nav",
+      "title": "Navigation",
+      "grid": { "cols": 3, "rows": 2 },
+      "widgets": [
+        { "type": "value", "at": { "col": 0, "row": 0 }, "label": "Speed over ground",
+          "bind": { "value": { "path": "navigation.speedOverGround" } } },
+        { "type": "value", "at": { "col": 1, "row": 0 }, "label": "Course over ground (true)",
+          "bind": { "value": { "path": "navigation.courseOverGroundTrue" } } },
+        { "type": "value", "at": { "col": 2, "row": 0 }, "label": "Heading (true)",
+          "bind": { "value": { "path": "navigation.headingTrue" } } },
+        { "type": "value", "at": { "col": 0, "row": 1 }, "label": "Depth below transducer",
+          "bind": { "value": { "path": "environment.depth.belowTransducer" } } },
+        { "type": "value", "at": { "col": 1, "row": 1, "w": 2 }, "label": "Position",
+          "bind": { "value": { "path": "navigation.position" } } }
+      ]
+    },
+    {
+      "id": "wind",
+      "title": "Wind and water",
+      "grid": { "cols": 3, "rows": 3 },
+      "widgets": [
+        { "type": "value", "at": { "col": 0, "row": 0 }, "label": "Apparent wind speed",
+          "bind": { "value": { "path": "environment.wind.speedApparent" } } },
+        { "type": "value", "at": { "col": 1, "row": 0 }, "label": "Apparent wind angle",
+          "bind": { "value": { "path": "environment.wind.angleApparent" } } },
+        { "type": "value", "at": { "col": 2, "row": 0 }, "label": "True wind speed",
+          "bind": { "value": { "path": "environment.wind.speedTrue" } } },
+        { "type": "value", "at": { "col": 0, "row": 1 }, "label": "True wind direction",
+          "bind": { "value": { "path": "environment.wind.directionTrue" } } },
+        { "type": "value", "at": { "col": 1, "row": 1 }, "label": "Speed through water",
+          "bind": { "value": { "path": "navigation.speedThroughWater" } } },
+        { "type": "value", "at": { "col": 2, "row": 1 }, "label": "Water temperature",
+          "bind": { "value": { "path": "environment.water.temperature" } } },
+        { "type": "alert", "at": { "col": 0, "row": 2, "w": 3 }, "label": "Signal K alerts" }
+      ]
+    }
+  ]
+}

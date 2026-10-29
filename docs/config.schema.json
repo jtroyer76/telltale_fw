@@ -1,0 +1,174 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/jtroyer76/telltale_fw/docs/config.schema.json",
+  "title": "Telltale config",
+  "description": "Screens, widgets and Signal K bindings for a Telltale display (docs/SPEC.md §6). The firmware's own checks (src/config.c) are the reference; this schema mirrors them. Per-type widget details also come from GET /api/widgets.",
+  "type": "object",
+  "required": ["schema_version", "screens"],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "device": {
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "maxLength": 47, "default": "Telltale" },
+        "hostname": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$", "maxLength": 31, "default": "telltale",
+                      "description": "mDNS name (<hostname>.local). A change applies after a restart." }
+      }
+    },
+    "signalk": {
+      "type": "object",
+      "properties": {
+        "host": { "type": "string", "maxLength": 63, "default": "",
+                  "description": "Server host or IP. Empty: find the server by mDNS (_signalk-ws._tcp)." },
+        "port": { "type": "integer", "minimum": 1, "maximum": 65535, "default": 80 }
+      }
+    },
+    "screens": {
+      "type": "array", "minItems": 1, "maxItems": 8,
+      "description": "Swipeable screens, left to right. Screen ids must be unique.",
+      "items": { "$ref": "#/$defs/screen" }
+    },
+    "clock": {
+      "type": "object",
+      "description": "Local time for clock times (tide highs and lows). Without offset_path, times show in UTC and say so.",
+      "properties": {
+        "offset_path": { "type": "string", "maxLength": 95,
+                         "description": "Signal K path with the UTC offset as (-)hhmm, e.g. environment.time.timezoneOffset (signalk-ships-time)." },
+        "hour12": { "type": "boolean", "default": false, "description": "6:14 PM instead of 18:14." }
+      }
+    },
+    "auto_screen": {
+      "type": "object",
+      "description": "Switch screens from a Signal K text value, e.g. navigation.state. Acts when the value changes; a swipe holds the chosen screen for manual_hold_s.",
+      "required": ["path", "screens"],
+      "properties": {
+        "path": { "type": "string", "minLength": 1, "maxLength": 95 },
+        "screens": { "type": "object", "maxProperties": 12,
+                     "description": "Value -> screen id.",
+                     "propertyNames": { "maxLength": 23 },
+                     "additionalProperties": { "type": "string" } },
+        "manual_hold_s": { "type": "integer", "minimum": 0, "default": 300 }
+      }
+    }
+  },
+  "$defs": {
+    "screen": {
+      "type": "object",
+      "required": ["id"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 47 },
+        "title": { "type": "string", "maxLength": 47, "description": "Defaults to the id." },
+        "grid": {
+          "type": "object",
+          "properties": {
+            "cols": { "type": "integer", "minimum": 1, "maximum": 24, "default": 4 },
+            "rows": { "type": "integer", "minimum": 1, "maximum": 24, "default": 3 }
+          }
+        },
+        "widgets": { "type": "array", "maxItems": 24, "items": { "$ref": "#/$defs/widget" },
+                     "description": "Widgets may not overlap or leave the grid." }
+      }
+    },
+    "widget": {
+      "type": "object",
+      "required": ["type", "at"],
+      "properties": {
+        "type": { "enum": ["value", "ring", "bar", "state", "alert", "tide", "anchor", "label"] },
+        "at": {
+          "type": "object",
+          "properties": {
+            "col": { "type": "integer", "minimum": 0, "default": 0 },
+            "row": { "type": "integer", "minimum": 0, "default": 0 },
+            "w": { "type": "integer", "minimum": 1, "default": 1 },
+            "h": { "type": "integer", "minimum": 1, "default": 1 }
+          }
+        },
+        "label": { "type": "string", "maxLength": 47,
+                   "description": "value, ring, bar, state: defaults to the Signal K displayName, then the path's last element. label: required." },
+        "min": { "type": "number", "default": 0, "description": "ring, bar: scale start, in SI like the data." },
+        "max": { "type": "number", "description": "ring, bar (required): scale end, in SI like the data (ratio 1 = 100 %). More than min." },
+        "api": { "type": "string", "pattern": "^/", "maxLength": 95,
+                 "description": "tide (required): tides API base on the Signal K server, e.g. /signalk/v2/api/tides/stations/vessel/default (signalk-tides)." },
+        "hours": { "type": "integer", "minimum": 6, "maximum": 48, "default": 18, "description": "tide: hours ahead to show." },
+        "history": { "type": "string", "pattern": "^/", "maxLength": 95,
+                     "description": "anchor: Signal K History API values endpoint (e.g. /signalk/v2/api/history/values); the trail is filled from it so it survives restarts. Absent: trail from boot." },
+        "trail_minutes": { "type": "integer", "minimum": 10, "maximum": 720, "default": 240, "description": "anchor: minutes of swing trail." },
+        "orientation": { "enum": ["horizontal", "vertical"], "description": "bar. Default: vertical if the cell is taller than wide." },
+        "states": {
+          "type": "array", "maxItems": 8,
+          "description": "state: how each value is shown. Values not listed are shown as received, in the normal colour.",
+          "items": {
+            "type": "object", "required": ["value"],
+            "properties": {
+              "value": { "type": "string", "minLength": 1, "maxLength": 23,
+                         "description": "As received; numbers as written (\"0\", \"1.5\"); booleans \"true\"/\"false\". Unique." },
+              "text": { "type": "string", "maxLength": 23, "description": "Shown instead of the value. Default: the value." },
+              "state": { "enum": ["nominal", "normal", "alert", "warn", "alarm", "emergency"], "default": "normal",
+                         "description": "Colour, as for zones." }
+            }
+          }
+        },
+        "bind": {
+          "type": "object",
+          "properties": {
+            "value": { "$ref": "#/$defs/binding" },
+            "position": { "$ref": "#/$defs/path_binding", "description": "anchor: the boat's position, e.g. navigation.position." },
+            "anchor": { "$ref": "#/$defs/path_binding", "description": "anchor: the anchor's position, e.g. navigation.anchor.position." },
+            "radius": { "$ref": "#/$defs/path_binding", "description": "anchor: alarm circle radius (m), e.g. navigation.anchor.maxRadius." },
+            "heading": { "$ref": "#/$defs/path_binding", "description": "anchor (optional): heading for the boat mark, e.g. navigation.headingTrue." },
+            "notifications": {
+              "type": "object",
+              "description": "alert: which Signal K notifications to show. anchor (optional): alarm under this prefix turns the plot red.",
+              "properties": {
+                "prefix": { "type": "string", "maxLength": 79, "pattern": "^[^*]*$",
+                            "description": "Path under notifications. (either form), e.g. electrical.batteries. Absent or empty: all." }
+              }
+            }
+          }
+        }
+      },
+      "allOf": [
+        { "if": { "properties": { "type": { "const": "anchor" } } },
+          "then": { "properties": { "bind": { "required": ["value", "position", "anchor", "radius"] } } } },
+        { "if": { "properties": { "type": { "const": "tide" } } },
+          "then": { "required": ["api"] } },
+        { "if": { "properties": { "type": { "enum": ["value", "ring", "bar", "state", "tide", "anchor"] } } },
+          "then": { "required": ["bind"], "properties": { "bind": { "required": ["value"] } } } },
+        { "if": { "properties": { "type": { "enum": ["ring", "bar"] } } },
+          "then": { "required": ["max"] } },
+        { "if": { "properties": { "type": { "const": "label" } } },
+          "then": { "required": ["label"] } }
+      ]
+    },
+    "path_binding": {
+      "type": "object", "required": ["path"],
+      "properties": { "path": { "type": "string", "minLength": 1, "maxLength": 95 } }
+    },
+    "binding": {
+      "type": "object",
+      "required": ["path"],
+      "properties": {
+        "path": { "type": "string", "minLength": 1, "maxLength": 95 },
+        "unit": { "enum": ["", "ratio", "%", "V", "A", "W", "Ah", "Wh", "K", "degC", "degF", "deg", "m/s", "kn",
+                           "m", "ft", "nm", "s", "min", "h", "Pa", "hPa"],
+                  "description": "Display unit (Signal K values are SI). Omitted: the server's displayUnits, else SI." },
+        "decimals": { "type": "integer", "minimum": 0, "maximum": 6,
+                      "description": "Omitted: the server's displayFormat, else 1." },
+        "stale_after_s": { "type": "integer", "minimum": 1, "default": 60,
+                           "description": "Age (from the server's timestamp) after which the value is shown dimmed." },
+        "zones": { "type": "array", "maxItems": 6, "items": { "$ref": "#/$defs/zone" },
+                   "description": "Override the zones in Signal K metadata. Limits in SI. The most severe zone containing the value wins." }
+      }
+    },
+    "zone": {
+      "type": "object",
+      "required": ["state"],
+      "anyOf": [ { "required": ["lower"] }, { "required": ["upper"] } ],
+      "properties": {
+        "lower": { "type": "number" },
+        "upper": { "type": "number" },
+        "state": { "enum": ["nominal", "normal", "alert", "warn", "alarm", "emergency"] }
+      }
+    }
+  }
+}

@@ -1,0 +1,85 @@
+# On a version tag (v*): build, run the host tests, publish a GitHub release with the firmware,
+# and put the web flasher (site/) with that firmware on GitHub Pages.
+# The firmware has no credentials in it: WiFi and the device password are set on the device
+# (docs/SPEC.md §5.6). src/secrets.h is gitignored, so it is never in this build.
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0          # git describe gives the firmware its version
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - uses: actions/cache@v6
+        with:
+          path: ~/.platformio
+          key: pio-${{ hashFiles('platformio.ini', 'dependencies.lock') }}
+
+      - name: Install PlatformIO and esptool
+        run: pip install platformio esptool==4.8.1
+
+      - name: No credentials in the build
+        run: test ! -e src/secrets.h
+
+      - name: Build
+        run: pio run -e lcd7
+
+      - name: Host tests
+        run: sh test/host/run.sh
+
+      - name: Package
+        run: |
+          VER=$(git describe --tags --always)
+          B=.pio/build/lcd7
+          mkdir -p dist site/firmware
+          cp $B/bootloader.bin $B/partitions.bin $B/ota_data_initial.bin $B/firmware.bin site/firmware/
+          # One file for esptool: write it at 0x0 on a fresh board
+          python -m esptool --chip esp32s3 merge_bin -o dist/telltale-$VER-full.bin \
+            --flash_mode dio --flash_freq 80m --flash_size 8MB \
+            0x0 $B/bootloader.bin 0x8000 $B/partitions.bin 0xf000 $B/ota_data_initial.bin 0x20000 $B/firmware.bin
+          # The app alone: for updates over WiFi (tools/ota_upload.py, or POST /ota)
+          cp $B/firmware.bin dist/telltale-$VER-update.bin
+          sed "s/@VERSION@/$VER/" site/manifest.template.json > site/firmware/manifest.json
+          rm site/manifest.template.json
+          echo "VER=$VER" >> $GITHUB_ENV
+
+      - name: Release
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$VER" dist/* --title "Telltale $VER" --generate-notes
+
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: site
+
+  pages:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - id: deploy
+        uses: actions/deploy-pages@v5
