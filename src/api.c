@@ -180,6 +180,10 @@ static esp_err_t status_get(httpd_req_t *req)
     cJSON_AddBoolToObject(body, "setup_hotspot", ws.on);
     cJSON_AddNumberToObject(body, "uptime_s", (double)(now / 1000000));
     cJSON_AddNumberToObject(body, "free_internal", heap_caps_get_free_size(MALLOC_CAP_INTERNAL));
+    // WiFi's buffers need DMA-capable internal RAM; the setup hotspot fails when it runs out (§5.6)
+    cJSON_AddNumberToObject(body, "free_dma", heap_caps_get_free_size(MALLOC_CAP_DMA));
+    cJSON_AddNumberToObject(body, "largest_dma", heap_caps_get_largest_free_block(MALLOC_CAP_DMA));
+    cJSON_AddNumberToObject(body, "min_free_dma", heap_caps_get_minimum_free_size(MALLOC_CAP_DMA));
     cJSON_AddNumberToObject(body, "free_psram", heap_caps_get_free_size(MALLOC_CAP_SPIRAM));
     cJSON_AddStringToObject(body, "config_source", config_source_name(config_store_running_source()));
     cJSON *sk = cJSON_AddObjectToObject(body, "signalk");
