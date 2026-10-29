@@ -175,13 +175,15 @@ Tested on the desk (2026-10-28):
 - **API and timeout:** `POST /api/wifi/setup` brings the hotspot up within 4 s, with 6 networks scanned. With no phone joined, it went off after about 5 minutes, and WiFi and Signal K came back without a restart.
 - **Plain HTTP:** a missing page gives 404 on the boat network.
 - **Memory:** free internal RAM was about 31–36 KB with this build, down from about 45–50 KB. It later fell to about 26 KB, too little for the hotspot (2026-10-29, below).
-- **Not tested:** a build without `secrets.h` (the release build will be the first), and the captive DNS from a PC.
+- **Since tested:** the release build (no `secrets.h`), and the captive DNS from a PC (2026-10-29, below).
 
 Hotspot out of memory (found and fixed 2026-10-29): in v0.1.1, with every screen built, a phone or PC joining the hotspot was dropped again and again (`reason = 8`) and never got the page. Serial showed failed allocations: `esp-aes: Failed to allocate memory` in the WPA2 handshake, and the WiFi driver's own buffers (200–700 bytes, DMA-capable internal RAM). Measured with a debug build: with the hotspot on, DMA-capable free RAM was about 3–4 KB, largest block a few hundred bytes. LVGL's objects took 62 KB of internal RAM, because they are small and the allocator puts anything under 16 KB (`CONFIG_SPIRAM_MALLOC_ALWAYSINTERNAL`) in internal RAM first. The fix puts LVGL's heap in PSRAM (`src/lv_mem_psram.h`); CI checks it stays there. Tested on the desk after the fix:
 - **Memory:** after boot, with Signal K connected, 66 KB internal free (was 26 KB), 58 KB DMA-capable (was 18 KB), largest DMA block 26 KB. With the hotspot on and a PC joined: 46 KB DMA-capable free, largest block 20 KB, no failed allocations.
 - **Hotspot from a PC:** joined, DNS answered `192.168.4.1`, the captive check redirected, the page loaded, and Save restarted the display onto its WiFi and Signal K. Left without saving: the hotspot went off 301 s later and WiFi came back.
 - **Screens:** all five screens of the test config draw correctly; OTA works.
-- **Not tested:** the phone flow after the fix, and first boot with no network saved. Once, the hotspot stayed on more than 9 minutes after the PC left; not seen again, cause unknown.
+- **Phone:** the owner's phone joined the hotspot on the fixed build.
+- **Clean install of v0.1.2 (2026-10-29):** installed from the web flasher with erase. The display came up on Set up WiFi by itself, and setup from the phone (WiFi, Signal K server, a chosen device password) worked. It joined WiFi and Signal K on the built-in screens with 91 KB of internal RAM free. The chosen password then worked for a config upload, which applied without a restart; `min_free_dma` fell to 19 KB while it was applied.
+- **Open:** once, the hotspot stayed on more than 9 minutes after the PC left; not seen again, cause unknown.
 
 
 ## 6. Config
