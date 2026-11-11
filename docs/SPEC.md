@@ -4,6 +4,8 @@ Status: draft, 2026-10-27. Sections marked **(verify)** rest on facts not yet ch
 
 **Status (2026-10-28):** Phases 2 and 3 are built and tested on the desk (§7): config saved on the device and changed over HTTP without a rebuild or reboot, last-known-good fallback, widget registry and descriptors, per-screen subscribe, Signal K metadata (units, decimals, zones, displayName), staleness from the server's timestamps, and `auto_screen` (switch screens from `navigation.state` or any text value, §6.6). Host tests: `test/host/run.sh`. Phase 4 widgets built: `ring`, `bar`, `state`, `alert` (§6.3). Derived values are computed in Signal K, not on the display (§6.5). An example boat's screens: `examples/sailboat.json` (§7 Phase 4). Not yet: the Phase 1 24 h soak, mDNS discovery of Signal K on the boat.
 
+**Proposed (2026-11-10), not built:** BLE repeater (§5.7, Phase 6).
+
 ## 1. Purpose
 
 A wall- or bulkhead-mounted touch display that shows Signal K data on screens defined entirely by config. First use is on a cruising sailboat; the firmware has nothing boat-specific in it.
@@ -22,6 +24,7 @@ A wall- or bulkhead-mounted touch display that shows Signal K data on screens de
 - Writing to Signal K (no controls, no PUT requests) — except acknowledging and silencing notifications (Phase 5).
 - Long-term history (InfluxDB). Graphs only keep what the device saw since boot.
 - A screen editor app. AI assistants write the config (Goals).
+- Showing or forwarding BLE sensor data. The BLE repeater (§5.7) only relays radio packets for the server's own Bluetooth plugins; nothing it hears is shown or sent to Signal K by the display.
 
 ## 2. Key decisions
 
@@ -66,7 +69,7 @@ The board takes 5 V only. Needs a fused 12 V → 5 V supply sized for the board'
 
 ### 3.3 Mounting
 
-A bulkhead visible from where people come and go. Near a companionway the enclosure must shed drips; keep metal away from the PCB antenna end. A central mount also makes it a candidate BLE gateway (Backlog).
+A bulkhead visible from where people come and go. Near a companionway the enclosure must shed drips; keep metal away from the PCB antenna end. A central mount also makes it a candidate BLE repeater (§5.7) and, later, BLE gateway (Backlog).
 
 ### 3.4 Other boards
 
@@ -185,6 +188,47 @@ Hotspot out of memory (found and fixed 2026-10-29): in v0.1.1, with every screen
 - **Clean install of v0.1.2 (2026-10-29):** installed from the web flasher with erase. The display came up on Set up WiFi by itself, and setup from the phone (WiFi, Signal K server, a chosen device password) worked. It joined WiFi and Signal K on the built-in screens with 91 KB of internal RAM free. The chosen password then worked for a config upload, which applied without a restart; `min_free_dma` fell to 19 KB while it was applied.
 - **Open:** once, the hotspot stayed on more than 9 minutes after the PC left; not seen again, cause unknown.
 
+
+### 5.7 BLE repeater (proposed 2026-11-10, not built)
+
+**Why.** Some BLE sensors broadcast from where the Signal K server's Bluetooth adapter can't hear them, but a centrally mounted display can. The repeater listens for broadcasts from a list of devices and sends each one out again **unchanged, under the device's own address**. The server's existing Bluetooth plugins then receive it as if the device were in range: no change on the server, any Signal K version.
+
+Seen on the first boat (2026-11-10): a Victron Orion XS DC-DC charger reached the server at about −90 dBm on a phone, and the server's adapters (built-in and a USB dongle) received none of its broadcasts in several 90–120 s `btmon` captures. At the display's mount spot a phone reads it at about −80 dBm (−70 to −86).
+
+**Why a repeater before the gateway (Backlog).** The gateway needs Signal K 2.31+ and plugins that use Signal K's BLE API. The repeater works with whatever the server runs today. Both can share the scanner later.
+
+**Config** (`ble_repeater`; absent means off):
+
+```json
+"ble_repeater": {
+  "mode": "measure",
+  "devices": [ { "mac": "AA:BB:CC:DD:EE:FF", "label": "dc-dc charger" } ],
+  "hold_s": 10
+}
+```
+
+- `mode`: `off`, `measure` (scan and count only, transmit nothing) or `repeat`.
+- `devices`: the allowlist. Only these addresses are ever repeated, so neighbours' devices never are. `label` is for the status page only.
+- `hold_s`: stop repeating a device this long after its last received broadcast, so a device that goes quiet also goes quiet at the server (Honest data, §1).
+
+**Behaviour:**
+
+- **Scan** passively and continuously, with the controller's duplicate filter off; match the address in the host and drop everything not on the list.
+- **Only random static addresses are repeated.** The Victron devices and RuuviTags on the first boat all use them (`btmon`, 2026-11-10). A listed device seen with another address type is skipped and shown in status.
+- **Repeat** (mode `repeat`): one advertising instance per listed device — legacy PDU, non-connectable, non-scannable — with its random address set to the device's address. When a broadcast arrives whose advertising data differs from the last one repeated, that data becomes the instance's advertising data.
+- **Advertising data only, not the scan response.** For the Orion XS, the Victron Instant Readout manufacturer data (company 0x02E1) is in the advertising data and the name is in the scan response (nRF Connect raw capture, 2026-11-10: 41 bytes of advertising plus scan response). **(verify)** the same for RuuviTag data format 5.
+- **No echoes:** advertising data identical to what was already repeated for that device is ignored. This also stops two repeaters repeating each other.
+- **Interval:** **(verify)** chosen on the desk. The server only needs about one packet per source packet; Victron devices broadcast about once a second.
+- **Status:** `GET /api/status` gains `ble_repeater`: mode, and per device `label`, `mac`, `hits`, `rssi_last`, `rssi_avg` (last minute), `last_seen_s`, `repeats`, `skipped`; plus total broadcasts seen and BLE errors. `tools/telltale.py status` shows it.
+- **Host tests:** address parsing, allowlist match, change detection, the hold timer and the status JSON.
+
+**To verify before building on it:**
+
+1. NimBLE in ESP-IDF 5.5 on the ESP32-S3: several extended advertising instances with legacy PDUs, each with its own random address (`ble_gap_ext_adv_set_addr`), while scanning. **(verify)** the API and the instance limit (`CONFIG_BT_NIMBLE_MAX_EXT_ADV_INSTANCES`), which also caps the device list.
+2. **Internal RAM:** about 66 KB is free today (§6.3 memory note), and the Bluetooth controller and NimBLE need internal RAM. Measure with Bluetooth on. Options if short: NimBLE's host memory in PSRAM (`CONFIG_BT_NIMBLE_MEM_ALLOC_MODE_EXTERNAL`) **(verify)**, and the store tables in PSRAM (§6.3 memory note).
+3. **WiFi and Bluetooth share one radio:** the effect on the Signal K stream, OTA and the setup hotspot. Pause Bluetooth during OTA and while the hotspot is on if needed.
+4. No display regression: frame rate, tearing, touch.
+5. The server takes the repeated packets as the device: BlueZ sees the same address and address type, and the plugins decode them.
 
 ## 6. Config
 
@@ -364,11 +408,18 @@ Telltale shows Signal K alarms, lets you acknowledge them, and decides how loudl
 - **Pi speaker:** the test server has `signalk-notification-player` (`digital.notificationPlayer.{silence,resolve,disable}`); Telltale could mute it at night. **(verify)** that those paths accept writes and what they do.
 - **First worked example — bilge** (a bilge pump monitor publishing to Signal K): normal pump runs → screen only, no sound; `notifications.environment.bilge.main.currentRunDuration` (long run) → alarm; runs-per-hour → alarm only if it is raised as a Signal K notification (a Grafana-only alert won't reach Telltale); bilge data stale → "bilge monitor offline" alarm.
 
+### Phase 6 — BLE repeater
+
+§5.7. Off unless configured.
+
+1. **Measure** at the mount spot: `measure` mode, the target devices' hit rate and RSSI over at least an hour. Acceptance: each target heard several times a minute, and no change to the display, WiFi or Signal K stream.
+2. **Repeat** on the desk, then at the mount spot. Acceptance: the server's plugin shows fresh values for a device its own adapter can't hear; when the device goes quiet the server's values go stale (repeating stops after `hold_s`); 24 h with WiFi, Signal K, OTA and the display all normal.
+
 ### Backlog
 
 Graph/sparkline, night mode (red, dimmed), compass/wind, config pull from Signal K, more board profiles. A visual design pass (layout, type sizes, colours, value placement) once the first boat's screens exist — owner suggests a session with a design agent (2026-10-28). Current layout: small caption top left, reading centred below it; ring and bar tracks a lighter blue than the card. (Screen switching by boat state is built: §6.6.)
 
-**BLE gateway mode** (optional, switched on in config): forward raw BLE advertisements to Signal K's BLE API, decoding stays in the server plugins — the role a separate BLE gateway (e.g. an AtomS3) plays. Needs Signal K 2.31+ (the test server is 2.26.0). WiFi and BLE share one radio; check the WiFi impact when built.
+**BLE gateway mode** (optional, switched on in config): forward raw BLE advertisements to Signal K's BLE API, decoding stays in the server plugins — the role a separate BLE gateway (e.g. an AtomS3) plays. Needs Signal K 2.31+ (the test server is 2.26.0). WiFi and BLE share one radio; check the WiFi impact when built. Shares the scanner with the BLE repeater (§5.7), which comes first.
 
 ## 8. Open questions
 
