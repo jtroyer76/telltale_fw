@@ -14,7 +14,8 @@ Firmware for a Signal K touch display with screens from a JSON config. Start wit
 - **Search the whole repo** for related references when changing something (README, SPEC, schema, examples, tests).
 - **Knowledge goes in the repo,** not the assistant's local memory: the owner works on several machines. Put lasting rules here and design facts in the SPEC.
 - **No secrets in git.** `src/secrets.h` is gitignored and optional; the device password comes from `TELLTALE_OTA_PASS`. Don't print it.
-- Ideas from other projects (KIP, Marine-Displays) only, no code copied: their licenses don't allow it.
+- **Ideas from other projects, no code copied.** KIP is MIT-licensed but a web app in TypeScript, so its code doesn't carry over to C and LVGL. Marine-Displays is under the PolyForm Noncommercial license, which an MIT project can't take code from. (Both license files read 2026-11-26.)
+- **Know KIP well.** It is the reference for how a Signal K display behaves. Before designing a feature KIP also has, read how KIP does it (its source and help pages, github.com/mxtommy/Kip) and write what you found, and where this design differs, in the SPEC.
 
 ## Working notes
 
