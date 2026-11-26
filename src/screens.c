@@ -13,6 +13,7 @@
 #include "store.h"
 #include "tides.h"
 #include "theme.h"
+#include "trend.h"
 #include "widget_types.h"
 #include "widgets.h"
 #include "wifi.h"
@@ -91,8 +92,8 @@ static void build_widget(lv_obj_t *tile, int screen, const screen_cfg_t *s, cons
     const widget_type_t *t = &widget_types[w->type];
     // An anchor widget's prefix is optional ("" = none); an alert widget's "" means every notification.
     if (t->takes_notifications && (!t->takes_anchor || w->notify_prefix[0])) alerts_watch(w->notify_prefix, screen);
-    // The anchor view's swing trail needs positions whatever screen is on show.
-    int when = t->takes_anchor ? STORE_BACKGROUND : screen;
+    // The anchor view's swing trail and a value's trend need their values whatever screen is on show.
+    int when = t->takes_anchor || w->trend_min ? STORE_BACKGROUND : screen;
     if (t->takes_value && w->value.path[0]) store_watch(w->value.path, when);
     if (t->takes_anchor) {
         store_watch(w->pos_path, STORE_BACKGROUND);
@@ -151,6 +152,7 @@ static void refresh_auto(void)
 
 static void refresh(lv_timer_t *t)
 {
+    trends_poll();
     for (int i = 0; i < s_view_count; i++) widget_update(&s_views[i]);
     refresh_auto();
     refresh_status();
@@ -235,6 +237,7 @@ void screens_build(const config_t *cfg)
     widgets_set_clock(cfg->clock_offset_path, cfg->clock_hour12);
     if (cfg->clock_offset_path[0]) store_watch(cfg->clock_offset_path, STORE_BACKGROUND);
 
+    trends_begin();   // each value widget with a trend opens its own as it is built
     for (int i = 0; i < cfg->screen_count; i++) {
         const screen_cfg_t *s = &cfg->screens[i];
         lv_dir_t dir = (i > 0 ? LV_DIR_LEFT : 0) | (i < cfg->screen_count - 1 ? LV_DIR_RIGHT : 0);
@@ -243,6 +246,8 @@ void screens_build(const config_t *cfg)
         build_header(tile, s->title);
         for (int j = 0; j < s->widget_count; j++) build_widget(tile, i, s, &s->widgets[j]);
     }
+
+    trends_end();
 
     s_auto = &cfg->auto_screen;
     if (s_auto->path[0]) store_watch(s_auto->path, STORE_BACKGROUND);

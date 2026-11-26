@@ -301,6 +301,54 @@ static bool parse_anchor(const cJSON *jw, widget_cfg_t *w, const char *where, ch
     return true;
 }
 
+#define TREND_MIN_DEFAULT  60
+#define TREND_MIN_MIN      5
+#define TREND_MIN_MAX      1440   // a day
+
+// value: an optional chart of the number's recent past, and where to fill it from.
+static bool parse_trend(const cJSON *jw, widget_cfg_t *w, const char *where, char *err, int err_len)
+{
+    const cJSON *trend = cJSON_GetObjectItemCaseSensitive(jw, "trend");
+    const cJSON *history = cJSON_GetObjectItemCaseSensitive(jw, "history");
+    if (!trend) {
+        if (history) {
+            snprintf(err, err_len, "%s: history needs a trend", where);
+            return false;
+        }
+        return true;
+    }
+    if (!cJSON_IsObject(trend)) {
+        snprintf(err, err_len, "%s: trend must be an object, e.g. {\"minutes\": 60}", where);
+        return false;
+    }
+    w->trend_min = get_int(trend, "minutes", TREND_MIN_DEFAULT);
+    if (w->trend_min < TREND_MIN_MIN || w->trend_min > TREND_MIN_MAX) {
+        snprintf(err, err_len, "%s: trend.minutes must be %d-%d", where, TREND_MIN_MIN, TREND_MIN_MAX);
+        return false;
+    }
+    const cJSON *min = cJSON_GetObjectItemCaseSensitive(trend, "min");
+    const cJSON *max = cJSON_GetObjectItemCaseSensitive(trend, "max");
+    if ((min && !cJSON_IsNumber(min)) || (max && !cJSON_IsNumber(max))) {
+        snprintf(err, err_len, "%s: trend.min and trend.max must be numbers, in SI", where);
+        return false;
+    }
+    w->trend_has_lo = min != NULL;
+    w->trend_has_hi = max != NULL;
+    w->trend_lo = min ? min->valuedouble : 0;
+    w->trend_hi = max ? max->valuedouble : 0;
+    if (min && max && w->trend_lo >= w->trend_hi) {
+        snprintf(err, err_len, "%s: trend.min must be less than trend.max", where);
+        return false;
+    }
+    if (history && (!cJSON_IsString(history) || history->valuestring[0] != '/')) {
+        snprintf(err, err_len, "%s: history must be a path on the Signal K server starting with /", where);
+        return false;
+    }
+    if (!check_len(history, CFG_PATH_LEN, "history", where, err, err_len)) return false;
+    copy_str(w->api, sizeof(w->api), history, "");
+    return true;
+}
+
 static bool parse_widget(const cJSON *jw, int index, const screen_cfg_t *screen, widget_cfg_t *w,
                          char *err, int err_len)
 {
@@ -348,6 +396,7 @@ static bool parse_widget(const cJSON *jw, int index, const screen_cfg_t *screen,
     if (t->takes_notifications && !parse_notifications(jw, w, where, err, err_len)) return false;
     if (t->takes_tide && !parse_tide(jw, w, where, err, err_len)) return false;
     if (t->takes_anchor && !parse_anchor(jw, w, where, err, err_len)) return false;
+    if (t->takes_trend && !parse_trend(jw, w, where, err, err_len)) return false;
 
     const cJSON *value = cJSON_GetObjectItemCaseSensitive(cJSON_GetObjectItemCaseSensitive(jw, "bind"), "value");
     if (t->takes_value && (value || t->value_required)) {
@@ -537,6 +586,15 @@ bool config_parse(const char *json, config_t *cfg, char *err, int err_len)
     }
     if (cfg->screen_count == 0) {
         snprintf(err, err_len, "config has no screens");
+        goto done;
+    }
+    // Every trend's path stays subscribed whatever screen is on show, so they are rationed.
+    int trends = 0;
+    for (int i = 0; i < cfg->screen_count; i++) {
+        for (int j = 0; j < cfg->screens[i].widget_count; j++) trends += cfg->screens[i].widgets[j].trend_min > 0;
+    }
+    if (trends > CFG_MAX_TRENDS) {
+        snprintf(err, err_len, "%d widgets have a trend; at most %d", trends, CFG_MAX_TRENDS);
         goto done;
     }
     if (!parse_auto_screen(cJSON_GetObjectItemCaseSensitive(root, "auto_screen"), cfg, err, err_len)) goto done;

@@ -18,9 +18,17 @@
 
 const widget_type_t widget_types[] = {
     {
-        .name = "value", .takes_value = true, .value_required = true,
-        .descriptor = "{\"type\":\"value\",\"shows\":\"Number or text with label and unit; colour from zones\","
-                      "\"props\":{" PROP_AT "," PROP_LABEL "},"
+        .name = "value", .takes_value = true, .value_required = true, .takes_trend = true,
+        .descriptor = "{\"type\":\"value\",\"shows\":\"Number or text with label and unit; colour from zones; "
+                      "optionally a faint chart of the number's recent past behind it\","
+                      "\"props\":{" PROP_AT "," PROP_LABEL ","
+                      "\"trend\":{\"type\":\"object\",\"default\":\"no chart\",\"note\":\"numbers only, not angles; "
+                      "at most 16 trends in a config\",\"props\":{"
+                      "\"minutes\":{\"type\":\"integer\",\"min\":5,\"max\":1440,\"default\":60},"
+                      "\"min\":{\"type\":\"number\",\"default\":\"lowest value in the window\",\"note\":\"SI, like the data\"},"
+                      "\"max\":{\"type\":\"number\",\"default\":\"highest value in the window\",\"note\":\"SI, like the data\"}}},"
+                      "\"history\":{\"type\":\"string\",\"note\":\"with trend: Signal K History API values endpoint, e.g. "
+                      "/signalk/v2/api/history/values; the chart is filled from it when the widget is built; absent = chart from boot\"}},"
                       "\"bindings\":{" BINDING_VALUE "}}",
     },
     {

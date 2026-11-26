@@ -15,6 +15,7 @@ typedef struct {
     bool takes_notifications; // bind.notifications (alert)
     bool takes_tide;         // api, hours (tide)
     bool takes_anchor;       // bind.position/anchor/radius/heading, trail_minutes (anchor)
+    bool takes_trend;        // trend, history (value)
     const char *descriptor;  // JSON object: props, bindings, types, defaults
 } widget_type_t;
 

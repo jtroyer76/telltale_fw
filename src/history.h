@@ -13,6 +13,11 @@
 // a few hundred KB of internal RAM.
 int history_parse_positions(const char *json, track_pt_t *out, int max);
 
+// Reads the rows of a History API response for one numeric path: "data":[["<time>",<number>],...].
+// Rows whose value is null (or not a number) are skipped. Times go into `ms` (epoch), values into
+// `v`, in the order received; returns how many, or -1 when the text has no "data" array.
+int history_parse_numbers(const char *json, int64_t *ms, float *v, int max);
+
 // Starts one fetch of the last `minutes` of `path` from `api` (e.g. /signalk/v2/api/history/values)
 // once Signal K is connected and its clock known. A new request replaces an unfinished one.
 void history_request(const char *api, const char *path, int minutes);

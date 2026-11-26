@@ -13,3 +13,4 @@
 #define COLOR_ALARM     lv_color_hex(0xff5a5a)
 #define COLOR_ACCENT    lv_color_hex(0x4ea1ff)   // gauge fill when the value is in no warning zone
 #define COLOR_TRACK     lv_color_hex(0x34466e)   // gauge background (clearly lighter than COLOR_CARD)
+#define COLOR_TREND     lv_color_hex(0x24365c)   // trend behind a reading: a shade up from COLOR_CARD, so the number stays readable

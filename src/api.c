@@ -21,6 +21,7 @@
 #include "sk_client.h"
 #include "store.h"
 #include "tides.h"
+#include "trend.h"
 #include "widget_types.h"
 #include "wifi.h"
 
@@ -211,6 +212,18 @@ static esp_err_t status_get(httpd_req_t *req)
         cJSON_AddNumberToObject(rj, "total_ms", render_ms);
         cJSON_AddNumberToObject(rj, "max_ms", render_max);
         cJSON_AddNumberToObject(rj, "kilopixels", px_k);
+    }
+    cJSON *trends = cJSON_AddArrayToObject(body, "trends");
+    char tpath[CFG_PATH_LEN];
+    const char *thist;
+    int tmin, tpoints;
+    for (int i = 0; trends_status(i, tpath, sizeof(tpath), &tmin, &tpoints, &thist); i++) {
+        cJSON *t = cJSON_CreateObject();
+        cJSON_AddStringToObject(t, "path", tpath);
+        cJSON_AddNumberToObject(t, "minutes", tmin);
+        cJSON_AddNumberToObject(t, "points", tpoints);
+        cJSON_AddStringToObject(t, "history", thist);
+        cJSON_AddItemToArray(trends, t);
     }
     alert_t worst;
     cJSON *al = cJSON_AddObjectToObject(body, "alerts");

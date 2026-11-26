@@ -91,7 +91,16 @@
                  "description": "tide (required): tides API base on the Signal K server, e.g. /signalk/v2/api/tides/stations/vessel/default (signalk-tides)." },
         "hours": { "type": "integer", "minimum": 6, "maximum": 48, "default": 18, "description": "tide: hours ahead to show." },
         "history": { "type": "string", "pattern": "^/", "maxLength": 95,
-                     "description": "anchor: Signal K History API values endpoint (e.g. /signalk/v2/api/history/values); the trail is filled from it so it survives restarts. Absent: trail from boot." },
+                     "description": "anchor: Signal K History API values endpoint (e.g. /signalk/v2/api/history/values); the trail is filled from it so it survives restarts. Absent: trail from boot. value: the same endpoint, to fill the trend when the widget is built; needs trend." },
+        "trend": {
+          "type": "object", "additionalProperties": false,
+          "description": "value: a faint chart of the number's recent past behind the reading. Numbers only, not angles. At most 16 widgets with a trend in a config.",
+          "properties": {
+            "minutes": { "type": "integer", "minimum": 5, "maximum": 1440, "default": 60, "description": "The window." },
+            "min": { "type": "number", "description": "Fixed bottom of the scale, in SI like the data. Default: the lowest value in the window." },
+            "max": { "type": "number", "description": "Fixed top of the scale, in SI like the data. More than min. Default: the highest value in the window." }
+          }
+        },
         "trail_minutes": { "type": "integer", "minimum": 10, "maximum": 720, "default": 240, "description": "anchor: minutes of swing trail." },
         "orientation": { "enum": ["horizontal", "vertical"], "description": "bar. Default: vertical if the cell is taller than wide." },
         "states": {

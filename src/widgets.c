@@ -14,6 +14,7 @@
 #include "tides.h"
 #include "history.h"
 #include "track.h"
+#include "trend.h"
 #include "units.h"
 #include "widget_types.h"
 
@@ -257,13 +258,74 @@ static void show_reading(widget_view_t *v, const char *number, const char *unit,
     ui_set_text_color(v->unit, color);
 }
 
-static void value_create(widget_view_t *v, lv_obj_t *card) { reading_create(v, card); }
+// The trend (SPEC §6.7): a faint chart of the number's recent past behind the reading, one
+// column per bucket, newest at the right. Empty buckets are gaps.
+typedef struct {
+    int handle;
+    lv_obj_t *chart;
+    bool scaled;
+    float lo, hi;
+    trend_window_t win;   // what is drawn
+} value_view_t;
+
+static void trend_draw(lv_event_t *e)
+{
+    const value_view_t *t = lv_event_get_user_data(e);
+    if (!t->scaled || t->win.n < 1) return;
+    lv_draw_ctx_t *ctx = lv_event_get_draw_ctx(e);
+    lv_area_t box;
+    lv_obj_get_coords(lv_event_get_target(e), &box);
+    lv_coord_t w = lv_area_get_width(&box), h = lv_area_get_height(&box);
+    lv_draw_rect_dsc_t dsc;
+    lv_draw_rect_dsc_init(&dsc);
+    dsc.bg_color = COLOR_TREND;
+    dsc.bg_opa = LV_OPA_COVER;
+    for (int k = 0; k < t->win.n; k++) {
+        if (!t->win.ok[k]) continue;
+        float f = (t->win.v[k] - t->lo) / (t->hi - t->lo);
+        if (f < 0) f = 0;
+        if (f > 1) f = 1;
+        lv_area_t col = {
+            .x1 = box.x1 + (lv_coord_t)((int32_t)w * k / t->win.n),
+            .x2 = box.x1 + (lv_coord_t)((int32_t)w * (k + 1) / t->win.n) - 1,
+            .y1 = box.y2 - (lv_coord_t)(f * (h - 1)),   // a value at the bottom of the scale still shows as a line
+            .y2 = box.y2,
+        };
+        lv_draw_rect(ctx, &dsc, &col);
+    }
+}
+
+static void value_create(widget_view_t *v, lv_obj_t *card)
+{
+    const widget_cfg_t *c = v->cfg;
+    value_view_t *t = c->trend_min ? heap_caps_calloc(1, sizeof(value_view_t), MALLOC_CAP_SPIRAM) : NULL;
+    v->priv = t;
+    if (t) {
+        t->handle = trends_open(c->value.path, c->trend_min, c->api);
+        // Created first, so the caption, reading and unit are drawn on top. Below the caption line.
+        lv_coord_t cap = lv_font_get_line_height(&lv_font_montserrat_16);
+        t->chart = lv_obj_create(card);
+        lv_obj_remove_style_all(t->chart);
+        lv_obj_set_size(t->chart, content_w(card), content_h(card) - cap);
+        lv_obj_align(t->chart, LV_ALIGN_BOTTOM_LEFT, 0, 0);
+        lv_obj_clear_flag(t->chart, LV_OBJ_FLAG_CLICKABLE | LV_OBJ_FLAG_SCROLLABLE);
+        lv_obj_add_event_cb(t->chart, trend_draw, LV_EVENT_DRAW_MAIN, t);
+    }
+    reading_create(v, card);
+}
 
 static void value_update(widget_view_t *v)
 {
     reading_t r;
     if (!read_binding(v, &r)) return;
     show_reading(v, r.number, r.unit, r.color);
+
+    value_view_t *t = v->priv;
+    if (!t || !trends_window(t->handle, &t->win)) return;   // redrawn only when a bucket closes or history arrives
+    const widget_cfg_t *c = v->cfg;
+    t->scaled = trend_scale(t->win.v, t->win.ok, t->win.n, c->trend_has_lo, c->trend_lo, c->trend_has_hi,
+                            c->trend_hi, &t->lo, &t->hi);
+    lv_obj_invalidate(t->chart);
 }
 
 // ---- ring: 270-degree arc, value in the middle ----
