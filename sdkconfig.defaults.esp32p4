@@ -9,6 +9,8 @@ CONFIG_ESP32P4_REV_MIN_100=y
 CONFIG_IDF_EXPERIMENTAL_FEATURES=y
 CONFIG_SPIRAM_MODE_HEX=y
 CONFIG_SPIRAM_SPEED_200M=y
+# Run code/rodata from PSRAM so flash writes (OTA, NVS) do not disturb the DSI panel
+CONFIG_SPIRAM_XIP_FROM_PSRAM=y
 
 # WiFi: the P4 has no radio. An ESP32-C6 on the board runs esp-hosted and is reached over 4-bit SDIO.
 CONFIG_SLAVE_IDF_TARGET_ESP32C6=y

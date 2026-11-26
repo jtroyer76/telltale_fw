@@ -68,6 +68,7 @@ Set `TELLTALE_OTA_PASS` to the device password (Settings on the screen), then:
 
 - `pio run -e lcd7-ota -t upload` — finds the device as `telltale.local`.
 - `pio run -e lcd7-ota -t upload --upload-port <ip>` — if mDNS doesn't resolve.
+- CrowPanel: `pio run -e crowpanel101-ota -t upload`. If mDNS doesn't resolve, set `TELLTALE_HOST` to the IP address; `--upload-port` does not work with this env.
 
 The status line shows progress. A new image that can't get on WiFi within 5 minutes rolls back to the previous one. `http://telltale.local/api/info` shows the running version and partition.
 

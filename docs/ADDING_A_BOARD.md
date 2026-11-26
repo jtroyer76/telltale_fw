@@ -58,9 +58,10 @@ Say plainly what you didn't test, and why.
 
 ## Known traps (from the first board)
 
-- **Flash writes stall an RGB panel** whose framebuffer is in PSRAM: the screen flashes during updates. Fixed with `CONFIG_SPIRAM_XIP_FROM_PSRAM=y` (SPEC §3.1).
+- **Flash writes disturb the panel:** the screen flashes during updates. Seen on both boards (RGB and MIPI-DSI) and fixed on both with `CONFIG_SPIRAM_XIP_FROM_PSRAM=y` (SPEC §3.1, §3.5).
 - **The pixel clock radiates into WiFi.** At default drive strength WiFi lost 10–60 % of pings; the weakest drive on the PCLK pin fixed it (SPEC §5.5, `board_lcd7.c`).
 - **GT911 on the legacy I2C driver** rejects the `scl_speed_hz` its config macro sets; clear it (`board_lcd7.c`).
 - Flash and PSRAM clock settings must match on the S3 (Waveshare's notes for the first board).
 - **ESP32-P4 needs another PlatformIO platform,** which must not share a PlatformIO home with the pinned one (SPEC §3.5).
+- **With that platform, build clean after changing `sdkconfig` defaults,** and don't set `upload_port` in the update env (SPEC §3.5).
 - **esp-hosted doesn't start by itself under PlatformIO** on a board with a WiFi coprocessor; the board file calls `esp_hosted_init()` (SPEC §3.5).

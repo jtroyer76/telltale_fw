@@ -97,6 +97,9 @@ Bring-up notes:
 - **Hotspot name.** `esp_read_mac(ESP_MAC_WIFI_SOFTAP)` fails on a chip with no radio; there the name comes from the coprocessor's address (`wifi.c`).
 - **Elecrow's code is not used.** Their lessons carry no license. Pins and timings are facts taken from them and from the schematic; the board file and the DSI display layer (`lvgl_port_dsi.c`) are written for this project.
 - **Elecrow's own notes disagree in places.** The lesson 17 `sdkconfig.defaults` still has the V1.0 SDIO pins; the generated `sdkconfig` and the schematic have the V1.2 ones used here. The schematic routes the panel's reset to GPIO41 but their code leaves it unused, as does this profile.
+- **Flashing during an update.** With the firmware running from flash, the panel flashed white pixels all through an update over WiFi, faster as the upload went on, and the log had task watchdog warnings (found 2026-11-26). `CONFIG_SPIRAM_XIP_FROM_PSRAM` (firmware copied to PSRAM at start, as on the LCD-7) stops it: no flashing on the next update. It takes about 1.7 MB of PSRAM. Whether it also stops the watchdog warnings was not checked.
+- **Clean build after changing `sdkconfig` defaults.** The pioarduino platform does not regenerate its linker memory layout (`esp-idf/esp_system/ld/memory.ld.in` in the build folder) when the config changes. An image built that way after turning on `CONFIG_SPIRAM_XIP_FROM_PSRAM` stopped at start with `assert failed: process_segments … (cnt == 2)` and the bootloader went back to the previous image. Delete `.pio/build/<env>` first.
+- **`upload_port` in the update env.** The pioarduino platform switches to its own `espota` uploader when `upload_port` is a host name or IP address, whatever `upload_protocol` says, and that fails in an ESP-IDF build. `crowpanel101-ota` sets no `upload_port`; `tools/ota_upload.py` takes the host from `TELLTALE_HOST`, default `telltale.local`.
 - **USB serial.** Reading the whole flash back over the CH340K failed with corrupt data at 460800 and 921600 baud; flashing at the default 460800 verifies.
 
 Tested on the board, 2026-11-25: first boot with no resets; WiFi joined with `wifi_drops` 0; Signal K connected with values arriving; both built-in screens fit at 1024×600 (screenshots from the device); update over WiFi restarted into the other app slot. After that update: `free_internal` 277543, `free_dma` 237927, `largest_dma` 116736, `min_free_dma` 198928, `free_psram` 31797268.
@@ -109,7 +112,9 @@ Tested on the board, 2026-11-26:
 - **Memory:** after the setup screen had been opened and closed, `min_free_dma` 133472 (lowest since boot) and `largest_dma` 81920.
 - **`examples/sailboat.json`:** the screens looked at fit at 1024×600 (device screenshots of three of its five); the `tide` widget fetched through the server's redirect and drew its curve.
 
-**Not tested yet:** flicker during an update, and joining the setup hotspot from a phone (the hotspot's name, its page, saving WiFi there).
+- **Update:** `pio run -e crowpanel101-ota -t upload` four times; an image that could not start was rolled back by the bootloader (twice); with the firmware running from PSRAM, no flashing on the panel during the update (by eye). After it: `free_internal` 241879, `free_dma` 202263, `free_psram` 29719984.
+
+**Not tested yet:** joining the setup hotspot from a phone (the hotspot's name, its page, saving WiFi there).
 
 ## 4. Design rules
 
@@ -164,7 +169,7 @@ Readings (`value`, `state`, and the number inside `ring`) follow KIP's layout (i
 
 - `POST /ota` on port 80, body = `firmware.bin`, header `X-OTA-Password` = the device password (§5.6, compared in constant time). Plain HTTP: keep the device on the boat LAN only.
 - `GET /api/info` — version (git describe), running partition, IP.
-- `pio run -e lcd7-ota -t upload` runs `tools/ota_upload.py` (password from `TELLTALE_OTA_PASS`, so it's not on the command line). Device found as `<hostname>.local` via mDNS; hostname from config `device.hostname`.
+- `pio run -e lcd7-ota -t upload` (CrowPanel: `crowpanel101-ota`, §3.5) runs `tools/ota_upload.py` (password from `TELLTALE_OTA_PASS`, so it's not on the command line). Device found as `<hostname>.local` via mDNS; hostname from config `device.hostname`.
 - Status line shows upload progress.
 - Rollback (`CONFIG_BOOTLOADER_APP_ROLLBACK_ENABLE`): a new image must get a WiFi IP within 5 min of first boot, or it restarts into the previous one; a crash before that also rolls back. WiFi is the test because it's what the next update needs.
 - WiFi, HTTP and OTA start even when the config fails to parse.
