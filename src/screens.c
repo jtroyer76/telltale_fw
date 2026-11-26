@@ -40,6 +40,28 @@ static char s_auto_last[STORE_TEXT_LEN];
 static int64_t s_manual_us;
 static bool s_switching;   // a switch we made, not a swipe
 
+// Render timing since screens_render_stats was last called (LVGL calls monitor after each refresh).
+static int s_frames, s_render_ms, s_render_max_ms;
+static uint32_t s_render_px;
+
+static void monitor(lv_disp_drv_t *drv, uint32_t time_ms, uint32_t px)
+{
+    s_frames++;
+    s_render_ms += (int)time_ms;
+    if ((int)time_ms > s_render_max_ms) s_render_max_ms = (int)time_ms;
+    s_render_px += px;
+}
+
+void screens_render_stats(int *frames, int *total_ms, int *max_ms, int *pixels_k)
+{
+    *frames = s_frames;
+    *total_ms = s_render_ms;
+    *max_ms = s_render_max_ms;
+    *pixels_k = (int)(s_render_px / 1000);
+    s_frames = s_render_ms = s_render_max_ms = 0;
+    s_render_px = 0;
+}
+
 static lv_obj_t *make_card(lv_obj_t *parent, lv_coord_t x, lv_coord_t y, lv_coord_t w, lv_coord_t h)
 {
     lv_obj_t *card = lv_obj_create(parent);
@@ -182,6 +204,7 @@ static void build_overlay(lv_obj_t *scr)
 
     if (s_timer) lv_timer_del(s_timer);
     s_timer = lv_timer_create(refresh, REFRESH_MS, NULL);
+    lv_disp_get_default()->driver->monitor_cb = monitor;
 }
 
 static void reset_screen(lv_obj_t *scr)

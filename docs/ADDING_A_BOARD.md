@@ -52,6 +52,7 @@ Run each of these on the real board and put the results in the PR. `tools/tellta
 | Touch | swipe between screens; tap the gear | Screen changes; Settings opens (attach a screenshot of it) |
 | WiFi | leave it running 30 min, then `status` | `wifi_drops` is 0. RGB panels can radiate into the antenna: see SPEC §5.5 |
 | Memory | `status` after 30 min, and with the setup hotspot on and a phone joined | Report `free_internal`, `free_dma`, `largest_dma`, `min_free_dma` and `free_psram`. WiFi needs DMA-capable internal RAM; on `lcd7` about 58 KB is free, and the hotspot with a phone joined takes 12–15 KB more |
+| Drawing speed | Swipe between full screens, then `tools/telltale.py <host> status` and read `render` | `max_ms` is the slowest redraw since the last `status`. The CrowPanel: about 40 ms for a full screen of big numbers (the first board was never measured). Say what you measured |
 | Update | `pio run -e <id>-ota -t upload --upload-port <ip>` | Restarts into the new build; `GET /api/info` shows it. The screen must not flicker while it writes |
 
 Say plainly what you didn't test, and why.
@@ -63,5 +64,6 @@ Say plainly what you didn't test, and why.
 - **GT911 on the legacy I2C driver** rejects the `scl_speed_hz` its config macro sets; clear it (`board_lcd7.c`).
 - Flash and PSRAM clock settings must match on the S3 (Waveshare's notes for the first board).
 - **ESP32-P4 needs another PlatformIO platform,** which must not share a PlatformIO home with the pinned one (SPEC §3.5).
+- **"Swipe works" is not a speed test.** The second board animated at 8 frames a second until it was measured: compressed fonts, and a draw buffer in PSRAM (SPEC §3.5, drawing speed).
 - **With that platform, build clean after changing `sdkconfig` defaults,** and don't set `upload_port` in the update env (SPEC §3.5).
 - **esp-hosted doesn't start by itself under PlatformIO** on a board with a WiFi coprocessor; the board file calls `esp_hosted_init()` (SPEC §3.5).
