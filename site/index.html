@@ -30,7 +30,8 @@
 <main>
   <h1>Telltale</h1>
   <p>Firmware for a touch display that shows your boat's Signal K data.
-     For the Waveshare ESP32-S3-Touch-LCD-7. Version <b id="version">…</b>.</p>
+     For the Waveshare ESP32-S3-Touch-LCD-7 and the Elecrow CrowPanel Advanced 10.1" ESP32-P4 (hardware V1.2).
+     Version <b id="version">…</b>.</p>
 
   <div class="card">
     <esp-web-install-button manifest="firmware/manifest.json">
@@ -39,6 +40,7 @@
       <span slot="not-allowed">Open this page over https to install.</span>
     </esp-web-install-button>
     <p>Connect the display to this computer by USB, click Install, and choose its serial port.
+       The installer reads which chip the board has and sends the firmware for it.
        Erase the device on a first install. To update a display you've set up, don't erase: its WiFi and screens are kept.</p>
   </div>
 

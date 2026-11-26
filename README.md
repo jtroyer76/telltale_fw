@@ -52,7 +52,7 @@ Requires PlatformIO. ESP-IDF 5.5.0 is pulled in by the pinned platform (`espress
 
 ## Installing a release
 
-**Web flasher: https://jtroyer76.github.io/telltale_fw/**. It installs the latest release from Chrome or Edge over USB, with no GitHub account needed. Releases are also listed under [Releases](https://github.com/jtroyer76/telltale_fw/releases). Releases also carry `telltale-<ver>-full.bin`, which esptool writes at `0x0`. A release build, tagged `v*`, is made by `.github/workflows/release.yml`.
+**Web flasher: https://jtroyer76.github.io/telltale_fw/**. It installs the latest release from Chrome or Edge over USB, with no GitHub account needed. Releases are also listed under [Releases](https://github.com/jtroyer76/telltale_fw/releases). Releases also carry a `telltale-<ver>-<board>-full.bin` for each board (`lcd7`, `crowpanel101`), which esptool writes at `0x0`, and a `-update.bin` for updates over WiFi. A release build, tagged `v*`, is made by `.github/workflows/release.yml`.
 
 ## Setting up a display
 
@@ -117,7 +117,7 @@ Board code in `src/board/` is adapted from Waveshare's ESP32-S3-Touch-LCD-7 demo
 Two board profiles:
 
 - Waveshare ESP32-S3-Touch-LCD-7 (800×480), env `lcd7`. SPEC §3.1.
-- Elecrow CrowPanel Advanced 10.1" ESP32-P4, hardware V1.2 (1024×600), env `crowpanel101`. SPEC §3.5. Releases and the web flasher don't cover it yet: build it yourself.
+- Elecrow CrowPanel Advanced 10.1" ESP32-P4, hardware V1.2 (1024×600), env `crowpanel101`. SPEC §3.5. Releases carry its firmware and the web flasher lists it; installing it from the web flasher has not been tried on the board yet.
 
 Power notes: SPEC §3.
 
