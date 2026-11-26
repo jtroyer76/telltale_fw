@@ -136,7 +136,7 @@ Readings (`value`, `state`, and the number inside `ring`) follow KIP's layout (i
   - All-black image (same PSRAM traffic, quiet data lines): no better. PCLK pin alone disconnected (peripheral, DMA and bounce ISR still running): perfect. PCLK at drive 0: perfect.
   - Lower pixel clocks helped partly (12 MHz) but 8 MHz is below what the panel will display (it shows its colour-cycle test pattern). Not helpful or not needed: no bounce buffer (worse), panel ISR on core 1, LWIP/WiFi IRAM options, PSRAM 120 MHz (needs 120 MHz flash with HPM, not tried), 32 KB I-cache (RTC watchdog reset at boot).
   - A clock change over OTA (warm restart) can leave the panel blank until a power cycle; the same is reported for this board in the Home Assistant community thread.
-  - Not done: the 24 h soak, and checking the panel at drive 0 across temperature.
+  - 24 h soak at home passed 2026-10-30 (v0.1.2). Not done: checking the panel at drive 0 across temperature.
 
 ### 5.6 Device settings and setup (built)
 
@@ -315,7 +315,7 @@ How, on the server (owner's step, when a screen needs one): a server plugin. Can
 
 ### Phase 1 — Board bring-up
 
-Display, touch, backlight, LVGL on the LCD-7 profile; WiFi; OTA; logging. Start from Waveshare's LCD-7 demo for panel timing. Acceptance: stable UI with WiFi active for 24 h, no drift or flicker (wiki §3.1 notes). **Status:** built; WiFi interference fixed (§5.5); 24 h soak not run.
+Display, touch, backlight, LVGL on the LCD-7 profile; WiFi; OTA; logging. Start from Waveshare's LCD-7 demo for panel timing. Acceptance: stable UI with WiFi active for 24 h, no drift or flicker (wiki §3.1 notes). **Status:** built; WiFi interference fixed (§5.5); 24 h soak passed at home 2026-10-29 → 2026-10-30 on v0.1.2 (WiFi active, live Signal K data, no drift or flicker; owner observed). Not yet repeated on the boat's 12 V supply.
 
 ### Phase 2 — Config and screens
 
