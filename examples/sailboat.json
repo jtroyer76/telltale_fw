@@ -76,6 +76,7 @@
       "grid": { "cols": 3, "rows": 3 },
       "widgets": [
         { "type": "value", "at": { "col": 0, "row": 0 }, "label": "Apparent wind",
+          "trend": { "minutes": 60, "min": 0 }, "history": "/signalk/v2/api/history/values",
           "bind": { "value": { "path": "environment.wind.speedApparent", "unit": "kn", "decimals": 1 } } },
         { "type": "value", "at": { "col": 1, "row": 0 }, "label": "Apparent angle",
           "bind": { "value": { "path": "environment.wind.angleApparent", "unit": "deg", "decimals": 0 } } },
@@ -114,6 +115,7 @@
         { "type": "value", "at": { "col": 2, "row": 2 }, "label": "Depth (transducer)",
           "bind": { "value": { "path": "environment.depth.belowTransducer", "unit": "ft", "decimals": 1 } } },
         { "type": "value", "at": { "col": 3, "row": 2 }, "label": "Wind",
+          "trend": { "minutes": 60, "min": 0 }, "history": "/signalk/v2/api/history/values",
           "bind": { "value": { "path": "environment.wind.speedApparent", "unit": "kn", "decimals": 1 } } }
       ]
     },

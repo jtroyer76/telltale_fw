@@ -352,7 +352,7 @@ First set:
 
 | Type | Shows | Props | Bindings | Built |
 |---|---|---|---|---|
-| `value` | Number (with unit) or text, with label; colour from zones | `label` | `value` | yes |
+| `value` | Number (with unit) or text, with label; colour from zones; optionally a faint chart of the number's recent past behind it (§6.7) | `label`, `trend`, `history` | `value` | yes |
 | `ring` | 270° arc from `min` to `max`, value in the middle; arc in the zone colour (accent blue when in no warning zone) | `label`, `min` (default 0), `max` (required) — SI like the data | `value` | 2026-10-28 |
 | `bar` | Bar from `min` to `max` with the value; horizontal (value above) or vertical (bar on the left) | `label`, `min`, `max`, `orientation` (default from the cell shape) | `value` | 2026-10-28 |
 | `state` | An enum as text and colour, e.g. charger mode. Values not in the map show as received | `label`, `states`: up to 8 × `{value, text, state}`; `value` as received (numbers as written, booleans `true`/`false`), `state` a zone state for the colour | `value` | 2026-10-28 |
@@ -373,7 +373,7 @@ Clock: Signal K has no local time, only UTC (`navigation.datetime`). Telltale ta
 
 `alert` details: notifications live in their own table (`src/alerts.c`), not the value store, written by the SK client. Each alert widget subscribes `notifications.<prefix>` and `notifications.<prefix>.*` (or `notifications.*`) while its screen is on show — both, because a wildcard doesn't match the path itself and hoekens-anchor-alarm raises its alarm at exactly `notifications.navigation.anchor` (found 2026-10-28; with only the wildcard the anchor alarm would never have shown); Signal K replays the active notifications on subscribe (checked on the test server 2026-10-28, and that prefix patterns filter correctly). `normal`/`nominal` and null values count as cleared; an unknown state shows as `alert`. On reconnect the table is emptied and refilled by the replay. Tested on the desk against a scripted fake server (warn → alarm with "+1 more" → cleared → none → connection lost = unknown) and against a boat's server (two `normal` notifications → "No alerts"). `GET /api/status` has an `alerts` summary (live, active count, worst). This is a per-screen widget; the always-on alarm banner, acknowledge and announcing are Phase 5.
 
-Later: a trend behind `value` (§6.7), `graph`, `compass`, `wind`.
+Later: `graph`, `compass`, `wind`.
 
 ### 6.4 Config API and safety
 
@@ -414,7 +414,7 @@ How, on the server (owner's step, when a screen needs one): a server plugin. Can
 - `navigation.state` is a Signal K path; the [signalk-autostate](https://github.com/meri-imperiumi/signalk-autostate) plugin sets it (README read 2026-10-28): `anchored` when `navigation.anchor.position` is set; `moored` from little movement or zero speed with the engine stopped; `sailing` / `motoring` when moving, from `propulsion.*.state` / `propulsion.*.revolutions`, with a configured default. Not installed on the test server (the path doesn't exist there yet). Without engine data (e.g. HALMET) it can't tell sailing from motoring.
 - Phase 5's context-aware announcing (night / underway / aboard) should read the same state rather than guess its own.
 
-### 6.7 Value trend (proposed 2026-11-26, not built)
+### 6.7 Value trend (built 2026-11-26)
 
 **Why.** A number says what the value is now; a faint chart behind it says where it has been: wind building or easing, battery voltage through the night, depth as the tide runs. Owner's request, after the background chart on KIP's numeric widget.
 
@@ -429,19 +429,21 @@ How, on the server (owner's step, when a screen needs one): a server plugin. Can
 
 - `trend.minutes`: the window, 5–1440, default 60. Absent `trend` means no chart, as now.
 - `trend.min`, `trend.max`: optional fixed ends of the scale, in the binding's SI unit. Without them the scale is the lowest and highest value in the window, with a little room above and below.
-- `history`: the same prop the `anchor` widget has. With it the chart is filled from the Signal K History API when the widget is built; without it the chart starts empty at boot.
+- `history`: the same prop the `anchor` widget has. With it the chart is filled from the Signal K History API when the widget is built; without it the chart starts empty at boot. `history` without `trend` is refused.
+- At most 16 widgets with a trend in a config: each one's path stays subscribed on every screen.
 
 **Where the data comes from.**
 
-- The display keeps the trend itself: 120 buckets per trend, each the average of the values that arrived in it. The bucket length is the window divided by 120 (30 s for 60 minutes, 12 minutes for 24 hours). About 1 KB of PSRAM per trend.
+- The display keeps the trend itself (`src/trend.c`): up to 120 buckets per trend, each the average of the values that arrived in it. Buckets are whole seconds: 30 s for 60 minutes, 12 minutes for 24 hours, and a window that doesn't divide into 120 gets fewer, longer ones (5 minutes: 100 buckets of 3 s). About 1 KB of PSRAM per trend. Widgets with the same path and window share one.
 - Bucket times come from Signal K's timestamps, like staleness and the tide curve: the board has no clock of its own.
 - A trend's path is subscribed whatever screen is on show, like the anchor widget's, so the chart has no holes from swiping away. A bucket with no values (connection lost, sensor off) is drawn as a gap, not joined across.
-- With `history`, one request in the background when the widget is built: `<history>?paths=<path>&duration=PT<minutes>M&resolution=<bucket seconds>`, the request `src/history.c` already makes for the anchor trail. Its rows fill the buckets older than the first live value. At most 120 rows whatever the window.
+- With `history`, one request in the background when the widget is built: `<history>?paths=<path>&duration=PT<minutes>M&resolution=<bucket seconds>`, the request `src/history.c` makes for the anchor trail. Its rows fill the buckets older than the first live value. At most 120 rows whatever the window. Five tries 30 s apart, then the chart just starts from live values; a reply with no rows counts as an answer.
+- A trend whose path and window are also in a new config keeps its data when the config changes; one that is no longer asked for is dropped.
 - No direct database queries (InfluxDB or other) and no pictures from a charting server: both tie the display to one boat's setup. The History API is the Signal K interface in front of whichever database the server uses.
 
-**Drawing.** A filled area in a dim tone behind the reading, newest at the right, redrawn when a bucket closes. The number, unit, label and zone colour are drawn on top, unchanged. No axes or labels: the tile's number is the scale's anchor. A stale value greys the number as now; the chart stays.
+**Drawing.** One column per bucket in a dim tone (a shade up from the card) behind the reading, below the caption line, newest at the right; redrawn when a bucket closes or history arrives. The number, unit, label and zone colour are drawn on top, unchanged. No axes or labels: the tile's number is the scale's anchor. A stale value greys the number as now; the chart stays.
 
-**Not charted.** Values that are not plain numbers (text, positions), and angles (SI unit `rad`): an average across north is wrong and the line would jump at the wrap. A `trend` on such a binding draws nothing. Angles need their own handling; not in the first build.
+**Not charted.** Values that are not plain numbers (text, positions), and angles (SI unit `rad`): an average across north is wrong and the line would jump at the wrap. A `trend` on such a binding draws nothing. The unit comes from Signal K metadata, which can arrive after the first values; anything collected before it says `rad` is dropped. Angles need their own handling; not in the first build.
 
 **Checked on the test server, 2026-11-26** (through the History API at `/signalk/v2/api/history`):
 
@@ -453,14 +455,16 @@ How, on the server (owner's step, when a screen needs one): a server plugin. Can
 
 **KIP, for comparison** (source read 2026-11-26; idea only, no code taken): its numeric widget's background chart is a live trace of the last 12 seconds at 120 points, not filled from history. Its separate chart widget has longer windows and does fill them from the History API. Here the window is long by default, because the tile already shows the value now.
 
-**Tests.** Host tests for the buckets (filling, rolling over, gaps, history rows merged in front of live ones, scale with and without fixed ends) and for parsing a saved History API reply. On the device: a tile with and without `history`, across a restart, a config change and a dropped connection.
+**Tests.** Host tests for the buckets (averaging, gaps, the window sliding and rolling over, a clock jumping back, history rows in front of live ones and never over them), the scale with and without fixed ends, the config rules, and parsing a saved History API reply (`test/host/fixtures/history_numbers.json`).
+
+On the CrowPanel, 2026-11-26, against a boat's server: apparent wind over 60 minutes and battery voltage over 12 hours each filled all 120 buckets from history within 25 s of the config being sent; a depth tile with no `history` filled from live values, one column every 3 s; an apparent-angle tile with a `trend` drew nothing; two tiles on the same path shared one trend; sending the config again kept the data, and removing a trend dropped it. `GET /api/status` lists each trend (`path`, `minutes`, `points`, `history`: `none`, `pending`, `ok` or `failed`). After a restart both history-backed trends were full again within 25 s. Swiping with trends on measured the same as without (about 30 ms a frame on average, §3.5). **Not tested:** a dropped connection, a server with no History API, and the LCD-7 board (it builds).
 
 **Open.**
 
 - A gust line (the bucket's highest value) for wind.
 - Trends on `ring` and `bar`.
-- Whether trends should survive a config change that leaves their path and window alone. First build: refilled.
-- A limit on trends per config, from the stream traffic of always-subscribed paths (they arrive at the 1 s subscribe period).
+- Whether 16 trends is the right limit: it is a guess at what the stream traffic of always-subscribed paths (1 s subscribe period) allows, not a measurement.
+- A smooth filled line instead of columns.
 
 ## 7. Phases
 
@@ -524,7 +528,7 @@ Telltale shows Signal K alarms, lets you acknowledge them, and decides how loudl
 
 ### Backlog
 
-Value trend (§6.7, proposed), a full graph widget, night mode (red, dimmed), compass/wind, config pull from Signal K, more board profiles. A visual design pass (layout, type sizes, colours, value placement) once the first boat's screens exist — owner suggests a session with a design agent (2026-10-28). Current layout: small caption top left, reading centred below it; ring and bar tracks a lighter blue than the card. (Screen switching by boat state is built: §6.6.)
+A full graph widget, night mode (red, dimmed), compass/wind, config pull from Signal K, more board profiles. A visual design pass (layout, type sizes, colours, value placement) once the first boat's screens exist — owner suggests a session with a design agent (2026-10-28). Current layout: small caption top left, reading centred below it; ring and bar tracks a lighter blue than the card. (Screen switching by boat state is built: §6.6.)
 
 **BLE gateway mode** (optional, switched on in config): forward raw BLE advertisements to Signal K's BLE API, decoding stays in the server plugins — the role a separate BLE gateway (e.g. an AtomS3) plays. Needs Signal K 2.31+ (the test server is 2.26.0). WiFi and BLE share one radio; check the WiFi impact when built. Shares the scanner with the BLE repeater (§5.7), which comes first.
 

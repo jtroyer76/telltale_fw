@@ -11,6 +11,7 @@
 #include "tides.h"
 #include "history.h"
 #include "track.h"
+#include "trend.h"
 #include "units.h"
 #include "widget_types.h"
 
@@ -546,6 +547,159 @@ static void test_widget_types(void)
     }
 }
 
+#define ABOUT(a, b) (fabs((double)(a) - (double)(b)) < 1e-3)
+#define TREND(extra) "{\"type\":\"value\",\"at\":{\"col\":0,\"row\":0},\"bind\":{\"value\":{\"path\":\"x\"}}" extra "}"
+
+static void test_trend(void)
+{
+    static trend_t t;
+    static float v[TREND_BUCKETS];
+    static bool ok[TREND_BUCKETS];
+    const int64_t T0 = 1764000000000LL;   // a whole number of every bucket length used below
+
+    // window sizes: whole-second buckets, at most TREND_BUCKETS of them
+    trend_init(&t, 60);
+    CHECK(t.bucket_s == 30 && t.n == 120);
+    trend_init(&t, 5);
+    CHECK(t.bucket_s == 3 && t.n == 100);
+    trend_init(&t, 1440);
+    CHECK(t.bucket_s == 720 && t.n == 120);
+
+    // empty: nothing valid, nothing to scale
+    trend_init(&t, 60);
+    float lo, hi;
+    CHECK(trend_window(&t, T0, v, ok) == 0);
+    CHECK(!trend_scale(v, ok, t.n, false, 0, false, 0, &lo, &hi));
+
+    // values in one bucket are averaged; the newest bucket is the last in the window
+    trend_add(&t, T0, 4.0);
+    trend_add(&t, T0 + 10000, 6.0);
+    trend_add(&t, T0 + 29999, 8.0);
+    CHECK(trend_window(&t, T0 + 29999, v, ok) == 1);
+    CHECK(ok[119] && ABOUT(v[119], 6.0) && !ok[118]);
+
+    // the next bucket; then two buckets with nothing in them are a gap
+    trend_add(&t, T0 + 30000, 10.0);
+    trend_add(&t, T0 + 120000, 2.0);
+    CHECK(trend_window(&t, T0 + 120000, v, ok) == 3);
+    CHECK(ok[115] && ABOUT(v[115], 6.0) && ok[116] && ABOUT(v[116], 10.0));
+    CHECK(!ok[117] && !ok[118] && ok[119] && ABOUT(v[119], 2.0));
+
+    // time moving on with no values slides the window: the old buckets move left, the right is empty
+    CHECK(trend_window(&t, T0 + 120000 + 10 * 30000, v, ok) == 3);
+    CHECK(ok[105] && ABOUT(v[105], 6.0) && ok[109] && !ok[119]);
+    CHECK(trend_window(&t, T0 + 200 * 30000LL, v, ok) == 0);   // all of it has left the window
+
+    // rolling over: after more than a window of values only the last 120 buckets are held
+    trend_init(&t, 60);
+    for (int i = 0; i < 300; i++) trend_add(&t, T0 + i * 30000LL, i);
+    CHECK(trend_window(&t, T0 + 299 * 30000LL, v, ok) == 120);
+    CHECK(ABOUT(v[0], 180) && ABOUT(v[119], 299));
+    // a long silence, then a value: the old buckets are not shown as if they were recent
+    trend_add(&t, T0 + 1000 * 30000LL, 7.0);
+    CHECK(trend_window(&t, T0 + 1000 * 30000LL, v, ok) == 1 && ABOUT(v[119], 7.0));
+    // a value older than anything held (a clock that jumped back) is dropped
+    trend_add(&t, T0, 99.0);
+    CHECK(trend_window(&t, T0 + 1000 * 30000LL, v, ok) == 1);
+    trend_add(&t, T0 + 1000 * 30000LL, NAN);   // not a number: ignored
+    CHECK(trend_window(&t, T0 + 1000 * 30000LL, v, ok) == 1 && ABOUT(v[119], 7.0));
+
+    // history goes in front of the live values and never into their buckets
+    trend_init(&t, 60);
+    trend_add(&t, T0 + 10 * 30000LL, 5.0);                 // first live value: bucket 10
+    trend_add(&t, T0 + 11 * 30000LL, 6.0);
+    for (int i = 0; i < 12; i++) trend_add_history(&t, T0 + i * 30000LL, 100 + i);   // buckets 0..11
+    CHECK(trend_window(&t, T0 + 11 * 30000LL, v, ok) == 12);
+    CHECK(ABOUT(v[108], 100) && ABOUT(v[117], 109));        // history filled buckets 0..9
+    CHECK(ABOUT(v[118], 5.0) && ABOUT(v[119], 6.0));        // live buckets untouched
+    // history before any live value: it sets the window by itself, and live values then follow it
+    trend_init(&t, 60);
+    for (int i = 0; i < 120; i++) trend_add_history(&t, T0 + i * 30000LL, i);
+    CHECK(trend_window(&t, T0 + 119 * 30000LL, v, ok) == 120 && ABOUT(v[0], 0) && ABOUT(v[119], 119));
+    trend_add(&t, T0 + 120 * 30000LL, 500);
+    CHECK(trend_window(&t, T0 + 120 * 30000LL, v, ok) == 120 && ABOUT(v[0], 1) && ABOUT(v[119], 500));
+    trend_add_history(&t, T0 + 120 * 30000LL, 1);          // too late: that bucket is live now
+    CHECK(trend_window(&t, T0 + 120 * 30000LL, v, ok) == 120 && ABOUT(v[119], 500));
+
+    // scale: the window's range with a tenth of it as room; fixed ends win
+    for (int i = 0; i < 4; i++) ok[i] = true;
+    v[0] = 10; v[1] = 20; v[2] = 15; v[3] = 1000;
+    ok[3] = false;                                          // a gap's value is not part of the range
+    CHECK(trend_scale(v, ok, 4, false, 0, false, 0, &lo, &hi) && ABOUT(lo, 9) && ABOUT(hi, 21));
+    CHECK(trend_scale(v, ok, 4, true, 0, false, 0, &lo, &hi) && ABOUT(lo, 0) && ABOUT(hi, 21));
+    CHECK(trend_scale(v, ok, 4, true, 0, true, 50, &lo, &hi) && ABOUT(lo, 0) && ABOUT(hi, 50));
+    CHECK(!trend_scale(v, ok, 4, true, 30, false, 0, &lo, &hi));   // fixed min above everything: nothing to draw
+    v[0] = v[1] = v[2] = 13.4f;                             // a flat line sits inside the scale, not on an edge
+    CHECK(trend_scale(v, ok, 4, false, 0, false, 0, &lo, &hi) && lo < 13.4f && hi > 13.4f);
+    v[0] = v[1] = v[2] = 0;
+    CHECK(trend_scale(v, ok, 4, false, 0, false, 0, &lo, &hi) && lo < 0 && hi > 0);
+
+    // A real History API response for a number (2026-11-26 20:30-21:30 UTC, 30 s rows, apparent wind speed)
+    static int64_t ms[256];
+    static float val[256];
+    char *json = read_file("test/host/fixtures/history_numbers.json");
+    CHECK(json != NULL);
+    if (json) {
+        int n = history_parse_numbers(json, ms, val, 256);
+        CHECK(n == 120);
+        int64_t first;
+        CHECK(sk_time_parse("2026-11-26T20:30:00.000Z", &first) && ms[0] == first);   // not the "range" times
+        CHECK(ABOUT(val[0], 10.186) && ABOUT(val[1], 9.56875) && ABOUT(val[119], 10.356));
+        CHECK(ms[119] - ms[0] == 119 * 30000LL);
+        CHECK(history_parse_numbers(json, ms, val, 10) == 10);                        // stops at max
+        // the whole reply lands one row per bucket of a 60-minute trend
+        trend_init(&t, 60);
+        for (int i = 0; i < n; i++) trend_add_history(&t, ms[i], val[i]);
+        CHECK(trend_window(&t, ms[119], v, ok) == 120 && ABOUT(v[0], 10.186) && ABOUT(v[119], 10.356));
+        CHECK(trend_scale(v, ok, t.n, false, 0, false, 0, &lo, &hi) && lo < 7.699f && hi > 13.159f);
+        free(json);
+    }
+    CHECK(history_parse_numbers("{\"data\":[[\"2026-11-26T20:30:00Z\",null],[\"2026-11-26T20:30:30Z\",-1.5],"
+                                "[\"2026-11-26T20:31:00Z\",\"text\"],[\"2026-11-26T20:31:30Z\",2,3]]}", ms, val, 10) == 2);
+    CHECK(ABOUT(val[0], -1.5) && ABOUT(val[1], 2));           // null and text rows skipped; a second column ignored
+    CHECK(history_parse_numbers("{\"data\":[]}", ms, val, 10) == 0);                  // an answer with no rows
+    CHECK(history_parse_numbers("{\"error\":\"no provider\"}", ms, val, 10) == -1);   // not an answer
+    CHECK(history_parse_numbers(NULL, ms, val, 10) == -1);
+
+    // config
+    CHECK(parse_screen(TREND(""), NULL) && s_cfg.screens[0].widgets[0].trend_min == 0);   // no chart unless asked
+    CHECK(parse_screen(TREND(",\"trend\":{}"), NULL));
+    const widget_cfg_t *w = &s_cfg.screens[0].widgets[0];
+    CHECK(w->trend_min == 60 && !w->trend_has_lo && !w->trend_has_hi && w->api[0] == '\0');
+    CHECK(parse_screen(TREND(",\"trend\":{\"minutes\":720,\"min\":0,\"max\":25.5},"
+                             "\"history\":\"/signalk/v2/api/history/values\""), NULL));
+    CHECK(w->trend_min == 720 && w->trend_has_lo && w->trend_lo == 0 && w->trend_has_hi && w->trend_hi == 25.5);
+    CHECK(strcmp(w->api, "/signalk/v2/api/history/values") == 0);
+    CHECK(!parse_screen(TREND(",\"trend\":true"), NULL));
+    CHECK(!parse_screen(TREND(",\"trend\":{\"minutes\":4}"), NULL));
+    CHECK(!parse_screen(TREND(",\"trend\":{\"minutes\":1441}"), NULL));
+    CHECK(!parse_screen(TREND(",\"trend\":{\"min\":\"0\"}"), NULL));
+    CHECK(!parse_screen(TREND(",\"trend\":{\"min\":5,\"max\":5}"), NULL));
+    CHECK(!parse_screen(TREND(",\"trend\":{},\"history\":\"signalk/history\""), NULL));   // not a server path
+    CHECK(!parse_screen(TREND(",\"history\":\"/signalk/v2/api/history/values\""), NULL));  // history with no trend
+    CHECK(strstr(s_err, "history needs a trend") != NULL);
+
+    // at most CFG_MAX_TRENDS trends in a config: 16 fit, a 17th is refused
+    static char json17[8192];
+    for (int count = CFG_MAX_TRENDS; count <= CFG_MAX_TRENDS + 1; count++) {
+        int len = snprintf(json17, sizeof(json17), "{\"schema_version\":1,\"screens\":[");
+        for (int s = 0; s < 2; s++) {
+            len += snprintf(json17 + len, sizeof(json17) - len, "%s{\"id\":\"s%d\",\"grid\":{\"cols\":3,\"rows\":3},\"widgets\":[",
+                            s ? "," : "", s);
+            int here = s == 0 ? 9 : count - 9;
+            for (int i = 0; i < here; i++) {
+                len += snprintf(json17 + len, sizeof(json17) - len,
+                                "%s{\"type\":\"value\",\"at\":{\"col\":%d,\"row\":%d},\"bind\":{\"value\":{\"path\":\"p.%d\"}},"
+                                "\"trend\":{}}", i ? "," : "", i % 3, i / 3, s * 9 + i);
+            }
+            len += snprintf(json17 + len, sizeof(json17) - len, "]}");
+        }
+        snprintf(json17 + len, sizeof(json17) - len, "]}");
+        CHECK(parse(json17) == (count <= CFG_MAX_TRENDS));
+    }
+    CHECK(strstr(s_err, "at most 16") != NULL);
+}
+
 int main(int argc, char **argv)
 {
     test_default_config(argc > 1 ? argv[1] : "data/default_config.json");
@@ -562,6 +716,7 @@ int main(int argc, char **argv)
     test_tides();
     test_anchor();
     test_history();
+    test_trend();
     test_widget_types();
     printf("%d checks, %d failed\n", s_run, s_failed);
     return s_failed ? 1 : 0;

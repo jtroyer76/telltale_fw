@@ -6,6 +6,6 @@ CJSON="${CJSON_DIR:-$HOME/.platformio/packages/framework-espidf/components/json/
 OUT="${TMPDIR:-/tmp}/telltale_host_tests"
 cc -std=gnu11 -Wall -Wextra -Wno-unused-parameter -O1 -g \
     -Isrc -I"$CJSON" \
-    test/host/test_main.c src/config.c src/units.c src/sk_time.c src/widget_types.c src/alerts.c src/tides.c src/track.c src/history.c "$CJSON/cJSON.c" \
+    test/host/test_main.c src/config.c src/units.c src/sk_time.c src/widget_types.c src/alerts.c src/tides.c src/track.c src/history.c src/trend.c "$CJSON/cJSON.c" \
     -lm -o "$OUT"
 "$OUT" data/default_config.json examples/*.json

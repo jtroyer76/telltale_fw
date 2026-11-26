@@ -52,6 +52,43 @@ int history_parse_positions(const char *json, track_pt_t *out, int max)
     return n;
 }
 
+int history_parse_numbers(const char *json, int64_t *ms, float *v, int max)
+{
+    const char *p = json ? strstr(json, "\"data\"") : NULL;
+    if (!p || !(p = strchr(p, '['))) return -1;
+    p++;   // inside the data array
+    int n = 0;
+    while (n < max) {
+        while (*p == ' ' || *p == ',' || *p == '\n' || *p == '\r' || *p == '\t') p++;
+        if (*p != '[') break;   // "]" ends the data array
+        p++;
+        while (*p == ' ') p++;
+        if (*p != '"') break;
+        const char *ts = ++p, *end = strchr(ts, '"');
+        if (!end || end - ts > 39) break;
+        char t[40];
+        memcpy(t, ts, end - ts);
+        t[end - ts] = '\0';
+        p = end + 1;
+        while (*p == ' ' || *p == ',') p++;
+        if (*p == '-' || (*p >= '0' && *p <= '9')) {   // null and anything else: no value in this row
+            char *q;
+            double value = strtod(p, &q);
+            p = q;
+            if (sk_time_parse(t, &ms[n]) && isfinite(value)) v[n++] = (float)value;
+        }
+        // skip the rest of the row: past its closing bracket
+        int depth = 1;
+        while (*p && depth) {
+            if (*p == '[') depth++;
+            if (*p == ']') depth--;
+            p++;
+        }
+        if (!*p) break;
+    }
+    return n;
+}
+
 #ifdef ESP_PLATFORM
 // ---- device: one background fetch per request ----
 
