@@ -22,7 +22,7 @@ A wall- or bulkhead-mounted touch display that shows Signal K data on screens de
 
 - NMEA 2000 or any data source other than Signal K.
 - Writing to Signal K (no controls, no PUT requests) — except acknowledging and silencing notifications (Phase 5).
-- Long-term history (InfluxDB). Graphs only keep what the device saw since boot.
+- Long-term history (InfluxDB). The display stores nothing across restarts and queries no database; what it shows of the past it has seen since boot or fetched from the Signal K History API (anchor trail §6.3, value trend §6.7).
 - A screen editor app. AI assistants write the config (Goals).
 - Showing or forwarding BLE sensor data. The BLE repeater (§5.7) only relays radio packets for the server's own Bluetooth plugins; nothing it hears is shown or sent to Signal K by the display.
 
@@ -75,6 +75,50 @@ A bulkhead visible from where people come and go. Near a companionway the enclos
 
 Each new board is a new profile (§5.1). No screen config changes. How to add one, and what the PR must show: [ADDING_A_BOARD.md](ADDING_A_BOARD.md).
 
+### 3.5 Second board profile: Elecrow CrowPanel Advanced 10.1" ESP32-P4
+
+Hardware **V1.2** (the revision is printed on the PCB; V1.3 has the same circuit, V1.0 and V2.0 differ and are not supported). Sources, all read 2026-11-25: Elecrow's repository `Elecrow-RD/CrowPanel-Advanced-10.1inch-ESP32-P4-HMI-AI-Display-1024x600-IPS-Touch-Screen` (the V1.2 Eagle schematic, the V1.1/V1.2 ESP-IDF lessons and their `sdkconfig`), and the board on hand. "Board" means read from the device itself.
+
+| Item | Value | Source |
+|---|---|---|
+| Main chip | ESP32-P4, revision v1.3, 16 MB flash, 32 MB PSRAM at 200 MHz | Board (esptool, boot log) |
+| WiFi | The P4 has no radio. An ESP32-C6-MINI-1 runs esp-hosted and is reached over 4-bit SDIO: CLK GPIO18, CMD 19, D0–D3 17/16/15/14, C6 enable on GPIO32 | Schematic; lesson 17 `sdkconfig`; board (link comes up) |
+| C6 firmware | esp-hosted 2.12.0 as shipped. The host library is pinned to the same minor version (`src/idf_component.yml`) | Board (boot log) |
+| Display | 10.1" IPS, 1024×600, MIPI-DSI, EK79007 controller, 2 data lanes at 900 Mbps, 51 MHz pixel clock, porches 160/70/160 and 23/10/12 | Lesson 7; board (driver initialises) |
+| Touch | GT911 on I2C, SDA GPIO45, SCL GPIO46, reset GPIO40, interrupt GPIO42 (not used: polled) | Schematic; lesson 5; board (GT911 answers) |
+| Backlight | MT9201 LED driver, enable and PWM on GPIO31 (30 kHz). GPIO29 is a power gate in the schematic, but its MOSFET (Q11) is unpopulated and a 0R link (R184) feeds the driver, so it is not driven | Schematic; lesson 7 |
+| USB | UART0 through a CH340K for flashing and logs; a second USB-C for power or USB 2.0 | Schematic; board |
+| Power | 5 V ±5 %, 5.5 V max, 2 A max, on either USB-C or the 4-pin 5 V connector; the inputs are diode-ORed. Elecrow gives 8–10 W with the screen on **(verify: not measured)** | Elecrow product manual; schematic |
+| Battery | PH2.0 connector for a single Li cell. It feeds the main rail through a MOSFET with no boost converter; a TP4059 charges it from 5 V at up to 430 mA. No low-voltage cutoff on the board: the cell needs its own protection | Schematic; Elecrow product manual |
+
+Not used: the camera connector, SD slot, microphone, speaker amplifier and the socket for LoRa or nRF24 modules.
+
+Bring-up notes:
+
+- **Toolchain.** The pinned PlatformIO platform has no ESP32-P4 support, so this board's env uses the pioarduino fork of it. That platform installs its own packages into the PlatformIO home it runs in and removes ones it doesn't expect: run in the default home it broke the PlatformIO install for the first board. Build this env with a separate `PLATFORMIO_CORE_DIR` and the `pio` that pioarduino installs there (README, Building). ESP-IDF's tools refuse to run from a Git Bash (MSYS) shell on Windows.
+- **esp-hosted start-up.** The library starts its SDIO link from a constructor and relies on being linked as a whole archive. PlatformIO's link step drops it, and `esp_wifi_init()` fails with "Transport not initialized". `board_crowpanel101.c` calls `esp_hosted_init()` itself.
+- **Hotspot name.** `esp_read_mac(ESP_MAC_WIFI_SOFTAP)` fails on a chip with no radio; there the name comes from the coprocessor's address (`wifi.c`).
+- **Elecrow's code is not used.** Their lessons carry no license. Pins and timings are facts taken from them and from the schematic; the board file and the DSI display layer (`lvgl_port_dsi.c`) are written for this project.
+- **Elecrow's own notes disagree in places.** The lesson 17 `sdkconfig.defaults` still has the V1.0 SDIO pins; the generated `sdkconfig` and the schematic have the V1.2 ones used here. The schematic routes the panel's reset to GPIO41 but their code leaves it unused, as does this profile.
+- **Flashing during an update.** With the firmware running from flash, the panel flashed white pixels all through an update over WiFi, faster as the upload went on, and the log had task watchdog warnings (found 2026-11-26). `CONFIG_SPIRAM_XIP_FROM_PSRAM` (firmware copied to PSRAM at start, as on the LCD-7) stops it: no flashing on the next update. It takes about 1.7 MB of PSRAM. Whether it also stops the watchdog warnings was not checked.
+- **Clean build after changing `sdkconfig` defaults.** The pioarduino platform does not regenerate its linker memory layout (`esp-idf/esp_system/ld/memory.ld.in` in the build folder) when the config changes. An image built that way after turning on `CONFIG_SPIRAM_XIP_FROM_PSRAM` stopped at start with `assert failed: process_segments … (cnt == 2)` and the bootloader went back to the previous image. Delete `.pio/build/<env>` first.
+- **`upload_port` in the update env.** The pioarduino platform switches to its own `espota` uploader when `upload_port` is a host name or IP address, whatever `upload_protocol` says, and that fails in an ESP-IDF build. `crowpanel101-ota` sets no `upload_port`; `tools/ota_upload.py` takes the host from `TELLTALE_HOST`, default `telltale.local`.
+- **USB serial.** Reading the whole flash back over the CH340K failed with corrupt data at 460800 and 921600 baud; flashing at the default 460800 verifies.
+
+Tested on the board, 2026-11-25: first boot with no resets; WiFi joined with `wifi_drops` 0; Signal K connected with values arriving; both built-in screens fit at 1024×600 (screenshots from the device); update over WiFi restarted into the other app slot. After that update: `free_internal` 277543, `free_dma` 237927, `largest_dma` 116736, `min_free_dma` 198928, `free_psram` 31797268.
+
+Tested on the board, 2026-11-26:
+
+- **Panel (by eye):** colours right, no tearing.
+- **Touch:** swipes change screens, the gear opens Settings, and its Change button brings up the setup screen with its QR codes.
+- **WiFi:** `wifi_drops` 0 after 11 h 17 min up (`uptime_s` 40636). It read 1 after the setup screen had been opened and closed.
+- **Memory:** after the setup screen had been opened and closed, `min_free_dma` 133472 (lowest since boot) and `largest_dma` 81920.
+- **`examples/sailboat.json`:** the screens looked at fit at 1024×600 (device screenshots of three of its five); the `tide` widget fetched through the server's redirect and drew its curve.
+
+- **Update:** `pio run -e crowpanel101-ota -t upload` four times; an image that could not start was rolled back by the bootloader (twice); with the firmware running from PSRAM, no flashing on the panel during the update (by eye). After it: `free_internal` 241879, `free_dma` 202263, `free_psram` 29719984.
+
+**Not tested yet:** joining the setup hotspot from a phone (the hotspot's name, its page, saving WiFi there).
+
 ## 4. Design rules
 
 - No Signal K path, label, colour, threshold or position in code. If code needs one, it comes from config or Signal K metadata.
@@ -97,7 +141,7 @@ Each new board is a new profile (§5.1). No screen config changes. How to add on
 
 ### 5.1 Board profile (compiled in)
 
-One header plus one PlatformIO env per board: panel timing, pins, touch, expander, backlight, resolution. Exposes resolution and capabilities (touch yes/no, SD yes/no) to the rest of the firmware.
+One file plus one PlatformIO env per board: panel timing, pins, touch, expander, backlight, resolution. The board is a build-time choice (`CONFIG_TELLTALE_BOARD_*` in `src/Kconfig.projbuild`, defaulting from the chip), `src/CMakeLists.txt` compiles only that board's files, and chip-specific settings live in `sdkconfig.defaults.<chip>`. Exposes resolution and capabilities (touch yes/no, SD yes/no) to the rest of the firmware.
 
 ### 5.2 Signal K client
 
@@ -128,7 +172,7 @@ Readings (`value`, `state`, and the number inside `ring`) follow KIP's layout (i
 
 - `POST /ota` on port 80, body = `firmware.bin`, header `X-OTA-Password` = the device password (§5.6, compared in constant time). Plain HTTP: keep the device on the boat LAN only.
 - `GET /api/info` — version (git describe), running partition, IP.
-- `pio run -e lcd7-ota -t upload` runs `tools/ota_upload.py` (password from `TELLTALE_OTA_PASS`, so it's not on the command line). Device found as `<hostname>.local` via mDNS; hostname from config `device.hostname`.
+- `pio run -e lcd7-ota -t upload` (CrowPanel: `crowpanel101-ota`, §3.5) runs `tools/ota_upload.py` (password from `TELLTALE_OTA_PASS`, so it's not on the command line). Device found as `<hostname>.local` via mDNS; hostname from config `device.hostname`.
 - Status line shows upload progress.
 - Rollback (`CONFIG_BOOTLOADER_APP_ROLLBACK_ENABLE`): a new image must get a WiFi IP within 5 min of first boot, or it restarts into the previous one; a crash before that also rolls back. WiFi is the test because it's what the next update needs.
 - WiFi, HTTP and OTA start even when the config fails to parse.
@@ -314,7 +358,7 @@ Clock: Signal K has no local time, only UTC (`navigation.datetime`). Telltale ta
 
 `alert` details: notifications live in their own table (`src/alerts.c`), not the value store, written by the SK client. Each alert widget subscribes `notifications.<prefix>` and `notifications.<prefix>.*` (or `notifications.*`) while its screen is on show — both, because a wildcard doesn't match the path itself and hoekens-anchor-alarm raises its alarm at exactly `notifications.navigation.anchor` (found 2026-10-28; with only the wildcard the anchor alarm would never have shown); Signal K replays the active notifications on subscribe (checked on the test server 2026-10-28, and that prefix patterns filter correctly). `normal`/`nominal` and null values count as cleared; an unknown state shows as `alert`. On reconnect the table is emptied and refilled by the replay. Tested on the desk against a scripted fake server (warn → alarm with "+1 more" → cleared → none → connection lost = unknown) and against a boat's server (two `normal` notifications → "No alerts"). `GET /api/status` has an `alerts` summary (live, active count, worst). This is a per-screen widget; the always-on alarm banner, acknowledge and announcing are Phase 5.
 
-Later: `sparkline`/`graph` (since-boot history), `compass`, `wind`.
+Later: a trend behind `value` (§6.7), `graph`, `compass`, `wind`.
 
 ### 6.4 Config API and safety
 
@@ -355,6 +399,54 @@ How, on the server (owner's step, when a screen needs one): a server plugin. Can
 - `navigation.state` is a Signal K path; the [signalk-autostate](https://github.com/meri-imperiumi/signalk-autostate) plugin sets it (README read 2026-10-28): `anchored` when `navigation.anchor.position` is set; `moored` from little movement or zero speed with the engine stopped; `sailing` / `motoring` when moving, from `propulsion.*.state` / `propulsion.*.revolutions`, with a configured default. Not installed on the test server (the path doesn't exist there yet). Without engine data (e.g. HALMET) it can't tell sailing from motoring.
 - Phase 5's context-aware announcing (night / underway / aboard) should read the same state rather than guess its own.
 
+### 6.7 Value trend (proposed 2026-11-26, not built)
+
+**Why.** A number says what the value is now; a faint chart behind it says where it has been: wind building or easing, battery voltage through the night, depth as the tide runs. Owner's request, after the background chart on KIP's numeric widget.
+
+**Config.** Two optional props on the `value` widget:
+
+```json
+{ "type": "value", "label": "Apparent wind",
+  "bind": { "value": "environment.wind.speedApparent" },
+  "trend": { "minutes": 60, "min": 0 },
+  "history": "/signalk/v2/api/history/values" }
+```
+
+- `trend.minutes`: the window, 5–1440, default 60. Absent `trend` means no chart, as now.
+- `trend.min`, `trend.max`: optional fixed ends of the scale, in the binding's SI unit. Without them the scale is the lowest and highest value in the window, with a little room above and below.
+- `history`: the same prop the `anchor` widget has. With it the chart is filled from the Signal K History API when the widget is built; without it the chart starts empty at boot.
+
+**Where the data comes from.**
+
+- The display keeps the trend itself: 120 buckets per trend, each the average of the values that arrived in it. The bucket length is the window divided by 120 (30 s for 60 minutes, 12 minutes for 24 hours). About 1 KB of PSRAM per trend.
+- Bucket times come from Signal K's timestamps, like staleness and the tide curve: the board has no clock of its own.
+- A trend's path is subscribed whatever screen is on show, like the anchor widget's, so the chart has no holes from swiping away. A bucket with no values (connection lost, sensor off) is drawn as a gap, not joined across.
+- With `history`, one request in the background when the widget is built: `<history>?paths=<path>&duration=PT<minutes>M&resolution=<bucket seconds>`, the request `src/history.c` already makes for the anchor trail. Its rows fill the buckets older than the first live value. At most 120 rows whatever the window.
+- No direct database queries (InfluxDB or other) and no pictures from a charting server: both tie the display to one boat's setup. The History API is the Signal K interface in front of whichever database the server uses.
+
+**Drawing.** A filled area in a dim tone behind the reading, newest at the right, redrawn when a bucket closes. The number, unit, label and zone colour are drawn on top, unchanged. No axes or labels: the tile's number is the scale's anchor. A stale value greys the number as now; the chart stays.
+
+**Not charted.** Values that are not plain numbers (text, positions), and angles (SI unit `rad`): an average across north is wrong and the line would jump at the wrap. A `trend` on such a binding draws nothing. Angles need their own handling; not in the first build.
+
+**Checked on the test server, 2026-11-26** (through the History API at `/signalk/v2/api/history`):
+
+- `paths` for the last hour listed 220 paths, seven of them under `environment.wind`.
+- `values?paths=environment.wind.speedApparent&duration=PT60M&resolution=10` returned 359 rows in 15 KB, each `[ISO time, number]`, in SI units (m/s), method `average`.
+- `environment.wind.speedTrue` was in the `paths` list but returned no rows for that hour, so a listed path can still come back empty; the chart then just starts from live values.
+- A request for `path:max` and `path:average` together answered 200. The reply's layout was not looked at **(verify)** before any gust line is built on it.
+- Which plugin answers the History API on that server is still not recorded (§6.3, `anchor` details). **(verify)** that a null or missing value in a row is handled: none was seen.
+
+**KIP, for comparison** (source read 2026-11-26; idea only, no code taken): its numeric widget's background chart is a live trace of the last 12 seconds at 120 points, not filled from history. Its separate chart widget has longer windows and does fill them from the History API. Here the window is long by default, because the tile already shows the value now.
+
+**Tests.** Host tests for the buckets (filling, rolling over, gaps, history rows merged in front of live ones, scale with and without fixed ends) and for parsing a saved History API reply. On the device: a tile with and without `history`, across a restart, a config change and a dropped connection.
+
+**Open.**
+
+- A gust line (the bucket's highest value) for wind.
+- Trends on `ring` and `bar`.
+- Whether trends should survive a config change that leaves their path and window alone. First build: refilled.
+- A limit on trends per config, from the stream traffic of always-subscribed paths (they arrive at the 1 s subscribe period).
+
 ## 7. Phases
 
 ### Phase 1 — Board bring-up
@@ -382,7 +474,7 @@ The first boat's screens, by boat state (`auto_screen` on `navigation.state`, §
 | `anchored`, also | Power at anchor | Solar per MPPT, battery current, SoC, time to go, today's harvest vs the energy budget — "can we run the heater/watermaker tonight?" | Missing MPPT/MultiPlus data (§8 Q9) |
 | `sailing` | Sail | Wind (apparent/true), SOG, COG, heading, depth | Compass/wind widgets (Backlog) for the nice version |
 | `motoring` | Engine | RPM, coolant, oil pressure, alternator output via B2B, fuel burn | HALMET engine data |
-| any | Morning summary | Overnight lows inside/out, Ah used overnight, wind trend, bilge cycles | History since boot (sparkline) |
+| any | Morning summary | Overnight lows inside/out, Ah used overnight, wind trend, bilge cycles | Value trend (§6.7) |
 | — | Returning to the boat | "Since you left": lowest SoC, highest fridge temp, bilge runs, shore power drops | History beyond the device's boot: InfluxDB, outside "Signal K only" — later |
 
 For it to work on the first boat: install signalk-autostate on its server (owner's step), engine data from HALMET for `motoring`, and Phase 4's widgets.
@@ -417,7 +509,7 @@ Telltale shows Signal K alarms, lets you acknowledge them, and decides how loudl
 
 ### Backlog
 
-Graph/sparkline, night mode (red, dimmed), compass/wind, config pull from Signal K, more board profiles. A visual design pass (layout, type sizes, colours, value placement) once the first boat's screens exist — owner suggests a session with a design agent (2026-10-28). Current layout: small caption top left, reading centred below it; ring and bar tracks a lighter blue than the card. (Screen switching by boat state is built: §6.6.)
+Value trend (§6.7, proposed), a full graph widget, night mode (red, dimmed), compass/wind, config pull from Signal K, more board profiles. A visual design pass (layout, type sizes, colours, value placement) once the first boat's screens exist — owner suggests a session with a design agent (2026-10-28). Current layout: small caption top left, reading centred below it; ring and bar tracks a lighter blue than the card. (Screen switching by boat state is built: §6.6.)
 
 **BLE gateway mode** (optional, switched on in config): forward raw BLE advertisements to Signal K's BLE API, decoding stays in the server plugins — the role a separate BLE gateway (e.g. an AtomS3) plays. Needs Signal K 2.31+ (the test server is 2.26.0). WiFi and BLE share one radio; check the WiFi impact when built. Shares the scanner with the BLE repeater (§5.7), which comes first.
 

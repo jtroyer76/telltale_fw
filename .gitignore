@@ -6,4 +6,5 @@ include/secrets.h
 src/secrets.h
 sdkconfig.*
 !sdkconfig.defaults
+!sdkconfig.defaults.*
 managed_components/

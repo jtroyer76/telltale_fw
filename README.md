@@ -45,6 +45,7 @@ Requires PlatformIO. ESP-IDF 5.5.0 is pulled in by the pinned platform (`espress
 
 1. Optional: copy `src/secrets.example.h` to `src/secrets.h` (gitignored) and fill in WiFi and a device password, so a development board skips the setup hotspot.
 2. `pio run -e lcd7 -t upload --upload-port COM6` — first flash over USB (also needed when the bootloader changes).
+   For the CrowPanel, the env is `crowpanel101`, and it needs its own PlatformIO home: the platform it uses (the pioarduino fork, for ESP32-P4 support) changes the PlatformIO install it runs in. Set `PLATFORMIO_CORE_DIR` to an empty folder, `pip install pioarduino` into a fresh Python environment, and run that `pio`: `pio run -e crowpanel101 -t upload --upload-port <port>`. On Windows use PowerShell or cmd, not Git Bash.
 3. The built-in config is `data/default_config.json`. It's generic: navigation, wind and water, and alerts, all from standard Signal K paths, in the units set on the Signal K server, with the server found by mDNS. It runs until you send one of your own (below). To try the example boat's screens: `python tools/telltale.py telltale.local put-config examples/sailboat.json`.
 
 ## Installing a release
@@ -67,6 +68,7 @@ Set `TELLTALE_OTA_PASS` to the device password (Settings on the screen), then:
 
 - `pio run -e lcd7-ota -t upload` — finds the device as `telltale.local`.
 - `pio run -e lcd7-ota -t upload --upload-port <ip>` — if mDNS doesn't resolve.
+- CrowPanel: `pio run -e crowpanel101-ota -t upload`. If mDNS doesn't resolve, set `TELLTALE_HOST` to the IP address; `--upload-port` does not work with this env.
 
 The status line shows progress. A new image that can't get on WiFi within 5 minutes rolls back to the previous one. `http://telltale.local/api/info` shows the running version and partition.
 
@@ -110,7 +112,12 @@ Board code in `src/board/` is adapted from Waveshare's ESP32-S3-Touch-LCD-7 demo
 
 ## Hardware
 
-First board profile: Waveshare ESP32-S3-Touch-LCD-7 (800×480). Details and power notes: SPEC §3.
+Two board profiles:
+
+- Waveshare ESP32-S3-Touch-LCD-7 (800×480), env `lcd7`. SPEC §3.1.
+- Elecrow CrowPanel Advanced 10.1" ESP32-P4, hardware V1.2 (1024×600), env `crowpanel101`. SPEC §3.5. Releases and the web flasher don't cover it yet: build it yourself.
+
+Power notes: SPEC §3.
 
 Your board isn't supported? [docs/ADDING_A_BOARD.md](docs/ADDING_A_BOARD.md) says what a board needs and what a PR adding one must show.
 

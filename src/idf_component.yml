@@ -8,3 +8,16 @@ dependencies:
   espressif/esp_websocket_client: "^1"
   espressif/mdns: "^1"
   joltwallet/littlefs: "^1"
+  # Elecrow CrowPanel Advanced 10.1 (ESP32-P4): the panel driver, and WiFi through the ESP32-C6
+  espressif/esp_lcd_ek79007:
+    version: "^1.0.2"
+    rules:
+      - if: "target == esp32p4"
+  espressif/esp_hosted:
+    version: "~2.12.0"
+    rules:
+      - if: "target == esp32p4"
+  espressif/esp_wifi_remote:
+    version: ">=0.16.1"
+    rules:
+      - if: "target == esp32p4"

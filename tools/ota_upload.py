@@ -1,9 +1,12 @@
 """Uploads firmware to a running Telltale over WiFi (POST /ota, see src/ota.h).
 
-    python tools/ota_upload.py <firmware.bin> <host>
+    python tools/ota_upload.py <firmware.bin> [host]
+
+Without a host it uses the TELLTALE_HOST environment variable, or telltale.local.
 
 The password comes from the TELLTALE_OTA_PASS environment variable (= the device
-password, under Settings on the screen). Used by `pio run -e lcd7-ota -t upload`.
+password, under Settings on the screen). Used by `pio run -e lcd7-ota -t upload` and
+`pio run -e crowpanel101-ota -t upload`.
 """
 
 import os
@@ -13,9 +16,10 @@ import urllib.request
 
 
 def main():
-    if len(sys.argv) != 3:
+    if len(sys.argv) not in (2, 3):
         sys.exit(__doc__)
-    image, host = sys.argv[1], sys.argv[2]
+    image = sys.argv[1]
+    host = sys.argv[2] if len(sys.argv) == 3 else os.environ.get("TELLTALE_HOST") or "telltale.local"
     password = os.environ.get("TELLTALE_OTA_PASS")
     if not password:
         sys.exit("Set TELLTALE_OTA_PASS (the device password, under Settings on the screen)")

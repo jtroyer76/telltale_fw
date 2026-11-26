@@ -20,5 +20,6 @@ Firmware for a Signal K touch display with screens from a JSON config. Start wit
 ## Working notes
 
 - Build: `pio run -e lcd7`. A full rebuild with parallel jobs can crash the compiler on `esp_lcd_panel_rgb.c`; `pio run -e lcd7 -j 1` gets through. Incremental builds are fine.
+- CrowPanel (ESP32-P4) build: env `crowpanel101`, with the pioarduino `pio` in its own `PLATFORMIO_CORE_DIR`, never the default PlatformIO home, and from PowerShell, not Git Bash (SPEC §3.5).
 - Host tests: `sh test/host/run.sh` (needs PlatformIO's ESP-IDF installed for cJSON).
 - On the device: `tools/telltale.py` (config, status, screenshot) and `pio run -e lcd7-ota -t upload` (update over WiFi). Updates fail while the setup hotspot is on.
