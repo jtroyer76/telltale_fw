@@ -1,6 +1,6 @@
 # Adding a board
 
-Telltale runs on one board today: the Waveshare ESP32-S3-Touch-LCD-7 (800×480, SPEC §3.1). If yours isn't supported, this is how to add it. It's written for people and for AI coding agents; agents should follow it to the letter.
+Telltale runs on two boards today: the Waveshare ESP32-S3-Touch-LCD-7 (800×480, SPEC §3.1) and the Elecrow CrowPanel Advanced 10.1" ESP32-P4 (1024×600, SPEC §3.5). If yours isn't supported, this is how to add it. It's written for people and for AI coding agents; agents should follow it to the letter.
 
 A board PR is accepted when it's small, sourced and shown working on the real board. Untested or guessed hardware support costs more to review than it saves, and will be closed.
 
@@ -8,10 +8,10 @@ A board PR is accepted when it's small, sourced and shown working on the real bo
 
 Your board is a good fit if it has:
 
-- **ESP32-S3 with PSRAM.** The framebuffer, the code (run from PSRAM so flash writes don't stall an RGB panel) and the anchor trail live in PSRAM. The current board has 8 MB.
+- **ESP32-S3 with PSRAM,** or an ESP32-P4 with a WiFi coprocessor that runs esp-hosted. The framebuffer, the code (run from PSRAM so flash writes don't stall an RGB panel) and the anchor trail live in PSRAM. The current board has 8 MB.
 - **8 MB flash or more.** `partitions.csv` has two 3 MB app slots for updates with rollback; the firmware is about 1.7 MB.
 - **A touch screen.** Swiping between screens and the Settings gear need touch.
-- **A screen near 800×480.** Screens are laid out in grid units and readings pick the largest font that fits, but nothing else has been tried. A much smaller screen may need a smaller font set.
+- **A screen between 800×480 and 1024×600.** Screens are laid out in grid units and readings pick the largest font that fits; those two sizes are the ones tried. A much smaller screen may need a smaller font set.
 
 You need the board on your desk. Without one, open an issue instead of a PR.
 
@@ -30,8 +30,8 @@ Collect these from the vendor's schematic, wiki, datasheet or demo code, and not
 
 One board per PR, and only these:
 
-1. **`src/board/board_<id>.c`**: implements `src/board/board.h` (`board_init`, `board_backlight`) for your board. Base it on `board_lcd7.c`. If you adapt vendor demo code, its license must allow use in an MIT project; keep its headers and say where it came from.
-2. **Board selection.** Today `board.h` is fixed to the one board. The first PR for a second board adds a build-time choice, one PlatformIO env per board, with its own sdkconfig, and only that board's file compiled in. Describe the mechanism in the PR. `lcd7` must build and behave exactly as before.
+1. **`src/board/board_<id>.c`**: implements `src/board/board.h` (`board_init`, `board_backlight`) for your board. Base it on `board_lcd7.c` (RGB panel) or `board_crowpanel101.c` (MIPI-DSI panel, which uses `lvgl_port_dsi.c`). If you adapt vendor demo code, its license must allow use in an MIT project; keep its headers and say where it came from.
+2. **Board selection.** Add your board to the `TELLTALE_BOARD` choice in `src/Kconfig.projbuild`, to `board.h` (name and resolution) and to the list in `src/CMakeLists.txt` that leaves the other boards' files out. Settings for a chip go in `sdkconfig.defaults.<chip>`; a second board on a chip that already has one needs its own per-env defaults file, so describe how you did it. The existing boards must build and behave exactly as before.
 3. **`platformio.ini`**: `[env:<id>]` and `[env:<id>-ota]`, like the `lcd7` pair.
 4. **CI**: build the new env in `.github/workflows/ci.yml`. Leave `release.yml` and the web flasher alone; the owner extends releases to new boards.
 5. **SPEC**: a §3 section for the board, like §3.1: a facts table with sources and dates, and bring-up notes (what went wrong and how it was fixed). Add it to the README's Hardware section.
@@ -58,7 +58,10 @@ Say plainly what you didn't test, and why.
 
 ## Known traps (from the first board)
 
-- **Flash writes stall an RGB panel** whose framebuffer is in PSRAM: the screen flashes during updates. Fixed with `CONFIG_SPIRAM_XIP_FROM_PSRAM=y` (SPEC §3.1).
+- **Flash writes disturb the panel:** the screen flashes during updates. Seen on both boards (RGB and MIPI-DSI) and fixed on both with `CONFIG_SPIRAM_XIP_FROM_PSRAM=y` (SPEC §3.1, §3.5).
 - **The pixel clock radiates into WiFi.** At default drive strength WiFi lost 10–60 % of pings; the weakest drive on the PCLK pin fixed it (SPEC §5.5, `board_lcd7.c`).
 - **GT911 on the legacy I2C driver** rejects the `scl_speed_hz` its config macro sets; clear it (`board_lcd7.c`).
 - Flash and PSRAM clock settings must match on the S3 (Waveshare's notes for the first board).
+- **ESP32-P4 needs another PlatformIO platform,** which must not share a PlatformIO home with the pinned one (SPEC §3.5).
+- **With that platform, build clean after changing `sdkconfig` defaults,** and don't set `upload_port` in the update env (SPEC §3.5).
+- **esp-hosted doesn't start by itself under PlatformIO** on a board with a WiFi coprocessor; the board file calls `esp_hosted_init()` (SPEC §3.5).

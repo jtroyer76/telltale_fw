@@ -52,3 +52,38 @@ jobs:
       # After the build: the host tests use the cJSON that PlatformIO installs.
       - name: Host tests
         run: sh test/host/run.sh
+
+  # The ESP32-P4 board. Its platform (the pioarduino fork) takes over the PlatformIO install it runs
+  # in, so it gets a job, a PlatformIO home and a pio of its own (SPEC §3.5).
+  build-crowpanel101:
+    runs-on: ubuntu-latest
+    env:
+      PLATFORMIO_CORE_DIR: /home/runner/.platformio-p4
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - uses: actions/cache@v6
+        with:
+          path: /home/runner/.platformio-p4
+          key: pio-p4-${{ hashFiles('platformio.ini', 'dependencies.lock.esp32p4') }}
+
+      - name: Install PlatformIO (pioarduino)
+        run: pip install pioarduino
+
+      - name: No credentials in the build
+        run: test ! -e src/secrets.h
+
+      - name: Build
+        run: pio run -e crowpanel101
+
+      - name: LVGL heap in PSRAM
+        run: |
+          syms=$("$PLATFORMIO_CORE_DIR"/packages/toolchain-riscv32-esp/bin/riscv32-esp-elf-nm -u                  .pio/build/crowpanel101/managed_components/lvgl__lvgl/src/misc/lv_mem.c.o)
+          echo "$syms" | grep -qw heap_caps_malloc
+          ! echo "$syms" | grep -qw malloc
