@@ -22,7 +22,7 @@ A wall- or bulkhead-mounted touch display that shows Signal K data on screens de
 
 - NMEA 2000 or any data source other than Signal K.
 - Writing to Signal K (no controls, no PUT requests) — except acknowledging and silencing notifications (Phase 5).
-- Long-term history (InfluxDB). Graphs only keep what the device saw since boot.
+- Long-term history (InfluxDB). The display stores nothing across restarts and queries no database; what it shows of the past it has seen since boot or fetched from the Signal K History API (anchor trail §6.3, value trend §6.7).
 - A screen editor app. AI assistants write the config (Goals).
 - Showing or forwarding BLE sensor data. The BLE repeater (§5.7) only relays radio packets for the server's own Bluetooth plugins; nothing it hears is shown or sent to Signal K by the display.
 
@@ -358,7 +358,7 @@ Clock: Signal K has no local time, only UTC (`navigation.datetime`). Telltale ta
 
 `alert` details: notifications live in their own table (`src/alerts.c`), not the value store, written by the SK client. Each alert widget subscribes `notifications.<prefix>` and `notifications.<prefix>.*` (or `notifications.*`) while its screen is on show — both, because a wildcard doesn't match the path itself and hoekens-anchor-alarm raises its alarm at exactly `notifications.navigation.anchor` (found 2026-10-28; with only the wildcard the anchor alarm would never have shown); Signal K replays the active notifications on subscribe (checked on the test server 2026-10-28, and that prefix patterns filter correctly). `normal`/`nominal` and null values count as cleared; an unknown state shows as `alert`. On reconnect the table is emptied and refilled by the replay. Tested on the desk against a scripted fake server (warn → alarm with "+1 more" → cleared → none → connection lost = unknown) and against a boat's server (two `normal` notifications → "No alerts"). `GET /api/status` has an `alerts` summary (live, active count, worst). This is a per-screen widget; the always-on alarm banner, acknowledge and announcing are Phase 5.
 
-Later: `sparkline`/`graph` (since-boot history), `compass`, `wind`.
+Later: a trend behind `value` (§6.7), `graph`, `compass`, `wind`.
 
 ### 6.4 Config API and safety
 
@@ -399,6 +399,54 @@ How, on the server (owner's step, when a screen needs one): a server plugin. Can
 - `navigation.state` is a Signal K path; the [signalk-autostate](https://github.com/meri-imperiumi/signalk-autostate) plugin sets it (README read 2026-10-28): `anchored` when `navigation.anchor.position` is set; `moored` from little movement or zero speed with the engine stopped; `sailing` / `motoring` when moving, from `propulsion.*.state` / `propulsion.*.revolutions`, with a configured default. Not installed on the test server (the path doesn't exist there yet). Without engine data (e.g. HALMET) it can't tell sailing from motoring.
 - Phase 5's context-aware announcing (night / underway / aboard) should read the same state rather than guess its own.
 
+### 6.7 Value trend (proposed 2026-11-26, not built)
+
+**Why.** A number says what the value is now; a faint chart behind it says where it has been: wind building or easing, battery voltage through the night, depth as the tide runs. Owner's request, after the background chart on KIP's numeric widget.
+
+**Config.** Two optional props on the `value` widget:
+
+```json
+{ "type": "value", "label": "Apparent wind",
+  "bind": { "value": "environment.wind.speedApparent" },
+  "trend": { "minutes": 60, "min": 0 },
+  "history": "/signalk/v2/api/history/values" }
+```
+
+- `trend.minutes`: the window, 5–1440, default 60. Absent `trend` means no chart, as now.
+- `trend.min`, `trend.max`: optional fixed ends of the scale, in the binding's SI unit. Without them the scale is the lowest and highest value in the window, with a little room above and below.
+- `history`: the same prop the `anchor` widget has. With it the chart is filled from the Signal K History API when the widget is built; without it the chart starts empty at boot.
+
+**Where the data comes from.**
+
+- The display keeps the trend itself: 120 buckets per trend, each the average of the values that arrived in it. The bucket length is the window divided by 120 (30 s for 60 minutes, 12 minutes for 24 hours). About 1 KB of PSRAM per trend.
+- Bucket times come from Signal K's timestamps, like staleness and the tide curve: the board has no clock of its own.
+- A trend's path is subscribed whatever screen is on show, like the anchor widget's, so the chart has no holes from swiping away. A bucket with no values (connection lost, sensor off) is drawn as a gap, not joined across.
+- With `history`, one request in the background when the widget is built: `<history>?paths=<path>&duration=PT<minutes>M&resolution=<bucket seconds>`, the request `src/history.c` already makes for the anchor trail. Its rows fill the buckets older than the first live value. At most 120 rows whatever the window.
+- No direct database queries (InfluxDB or other) and no pictures from a charting server: both tie the display to one boat's setup. The History API is the Signal K interface in front of whichever database the server uses.
+
+**Drawing.** A filled area in a dim tone behind the reading, newest at the right, redrawn when a bucket closes. The number, unit, label and zone colour are drawn on top, unchanged. No axes or labels: the tile's number is the scale's anchor. A stale value greys the number as now; the chart stays.
+
+**Not charted.** Values that are not plain numbers (text, positions), and angles (SI unit `rad`): an average across north is wrong and the line would jump at the wrap. A `trend` on such a binding draws nothing. Angles need their own handling; not in the first build.
+
+**Checked on the test server, 2026-11-26** (through the History API at `/signalk/v2/api/history`):
+
+- `paths` for the last hour listed 220 paths, seven of them under `environment.wind`.
+- `values?paths=environment.wind.speedApparent&duration=PT60M&resolution=10` returned 359 rows in 15 KB, each `[ISO time, number]`, in SI units (m/s), method `average`.
+- `environment.wind.speedTrue` was in the `paths` list but returned no rows for that hour, so a listed path can still come back empty; the chart then just starts from live values.
+- A request for `path:max` and `path:average` together answered 200. The reply's layout was not looked at **(verify)** before any gust line is built on it.
+- Which plugin answers the History API on that server is still not recorded (§6.3, `anchor` details). **(verify)** that a null or missing value in a row is handled: none was seen.
+
+**KIP, for comparison** (source read 2026-11-26; idea only, no code taken): its numeric widget's background chart is a live trace of the last 12 seconds at 120 points, not filled from history. Its separate chart widget has longer windows and does fill them from the History API. Here the window is long by default, because the tile already shows the value now.
+
+**Tests.** Host tests for the buckets (filling, rolling over, gaps, history rows merged in front of live ones, scale with and without fixed ends) and for parsing a saved History API reply. On the device: a tile with and without `history`, across a restart, a config change and a dropped connection.
+
+**Open.**
+
+- A gust line (the bucket's highest value) for wind.
+- Trends on `ring` and `bar`.
+- Whether trends should survive a config change that leaves their path and window alone. First build: refilled.
+- A limit on trends per config, from the stream traffic of always-subscribed paths (they arrive at the 1 s subscribe period).
+
 ## 7. Phases
 
 ### Phase 1 — Board bring-up
@@ -426,7 +474,7 @@ The first boat's screens, by boat state (`auto_screen` on `navigation.state`, §
 | `anchored`, also | Power at anchor | Solar per MPPT, battery current, SoC, time to go, today's harvest vs the energy budget — "can we run the heater/watermaker tonight?" | Missing MPPT/MultiPlus data (§8 Q9) |
 | `sailing` | Sail | Wind (apparent/true), SOG, COG, heading, depth | Compass/wind widgets (Backlog) for the nice version |
 | `motoring` | Engine | RPM, coolant, oil pressure, alternator output via B2B, fuel burn | HALMET engine data |
-| any | Morning summary | Overnight lows inside/out, Ah used overnight, wind trend, bilge cycles | History since boot (sparkline) |
+| any | Morning summary | Overnight lows inside/out, Ah used overnight, wind trend, bilge cycles | Value trend (§6.7) |
 | — | Returning to the boat | "Since you left": lowest SoC, highest fridge temp, bilge runs, shore power drops | History beyond the device's boot: InfluxDB, outside "Signal K only" — later |
 
 For it to work on the first boat: install signalk-autostate on its server (owner's step), engine data from HALMET for `motoring`, and Phase 4's widgets.
@@ -461,7 +509,7 @@ Telltale shows Signal K alarms, lets you acknowledge them, and decides how loudl
 
 ### Backlog
 
-Graph/sparkline, night mode (red, dimmed), compass/wind, config pull from Signal K, more board profiles. A visual design pass (layout, type sizes, colours, value placement) once the first boat's screens exist — owner suggests a session with a design agent (2026-10-28). Current layout: small caption top left, reading centred below it; ring and bar tracks a lighter blue than the card. (Screen switching by boat state is built: §6.6.)
+Value trend (§6.7, proposed), a full graph widget, night mode (red, dimmed), compass/wind, config pull from Signal K, more board profiles. A visual design pass (layout, type sizes, colours, value placement) once the first boat's screens exist — owner suggests a session with a design agent (2026-10-28). Current layout: small caption top left, reading centred below it; ring and bar tracks a lighter blue than the card. (Screen switching by boat state is built: §6.6.)
 
 **BLE gateway mode** (optional, switched on in config): forward raw BLE advertisements to Signal K's BLE API, decoding stays in the server plugins — the role a separate BLE gateway (e.g. an AtomS3) plays. Needs Signal K 2.31+ (the test server is 2.26.0). WiFi and BLE share one radio; check the WiFi impact when built. Shares the scanner with the BLE repeater (§5.7), which comes first.
 
