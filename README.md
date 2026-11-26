@@ -1,6 +1,8 @@
 # telltale_fw
 
-Firmware for Telltale: an ESP32-S3 touch display for Signal K data, with screens defined in config.
+Firmware for Telltale: a touch display for Signal K data, with screens defined in config.
+
+It runs on ESP32 boards with a touch screen. Two are supported today, an ESP32-S3 and an ESP32-P4 board ([Hardware](#hardware)); another needs a board profile, and [docs/ADDING_A_BOARD.md](docs/ADDING_A_BOARD.md) says how to add one.
 
 Nothing about what is shown is compiled in. Screens, widgets, Signal K paths, units, thresholds and layout all come from a JSON config file on the device. The firmware provides the board support, a Signal K client and a registry of widget types; the config puts them together.
 
@@ -10,7 +12,7 @@ Status: config API, per-screen Signal K subscriptions with metadata, and screen 
 
 ## What it looks like
 
-Screenshots taken from the display itself (`telltale.py screenshot`), 800×480, with live data from a boat's Signal K server. The anchor shots use a simulated swing and drag, since the boat is at the dock.
+Screenshots taken from the display itself (`telltale.py screenshot`) on the 800×480 board, with live data from a boat's Signal K server. The anchor shots use a simulated swing and drag, since the boat is at the dock.
 
 <table>
 <tr><td width="50%"><img src="docs/img/health.png" alt="Boat health" width="100%"></td><td width="50%"><img src="docs/img/power.png" alt="Power" width="100%"></td></tr>
