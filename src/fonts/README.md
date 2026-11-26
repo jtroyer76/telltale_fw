@@ -1,9 +1,9 @@
 # Reading fonts
 
-Montserrat SemiBold (SIL Open Font License 1.1, [OFL.txt](OFL.txt); from https://github.com/JulietaUla/Montserrat) at sizes LVGL doesn't ship, for the big numbers in the value and state widgets. ASCII and `°`, 4 bits per pixel. Made with LVGL's converter:
+Montserrat SemiBold (SIL Open Font License 1.1, [OFL.txt](OFL.txt); from https://github.com/JulietaUla/Montserrat) at sizes LVGL doesn't ship, for the big numbers in the value and state widgets. ASCII and `°`, 4 bits per pixel, not compressed: LVGL unpacks a compressed glyph every time it draws it, once for each strip of the screen it crosses, and a full screen of big numbers then took four times as long to draw (SPEC §3.5). Made with LVGL's converter:
 
 ```
-npx lv_font_conv@1.5.3 --font Montserrat-SemiBold.ttf -r 0x20-0x7E,0xB0 --size 96 --bpp 4 --format lvgl --lv-include lvgl.h -o reading_96.c
+npx lv_font_conv@1.5.3 --font Montserrat-SemiBold.ttf -r 0x20-0x7E,0xB0 --size 96 --bpp 4 --no-compress --format lvgl --lv-include lvgl.h -o reading_96.c
 ```
 
 (and the same for 64, 48 and 36).

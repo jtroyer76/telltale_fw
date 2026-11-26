@@ -202,6 +202,16 @@ static esp_err_t status_get(httpd_req_t *req)
         }
         free(td);
     }
+    int frames, render_ms, render_max, px_k;
+    if (lvgl_port_lock(200)) {
+        screens_render_stats(&frames, &render_ms, &render_max, &px_k);
+        lvgl_port_unlock();
+        cJSON *rj = cJSON_AddObjectToObject(body, "render");   // since the last status request
+        cJSON_AddNumberToObject(rj, "frames", frames);
+        cJSON_AddNumberToObject(rj, "total_ms", render_ms);
+        cJSON_AddNumberToObject(rj, "max_ms", render_max);
+        cJSON_AddNumberToObject(rj, "kilopixels", px_k);
+    }
     alert_t worst;
     cJSON *al = cJSON_AddObjectToObject(body, "alerts");
     cJSON_AddBoolToObject(al, "live", alerts_live());
