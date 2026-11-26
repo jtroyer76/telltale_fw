@@ -18,3 +18,7 @@ void screens_set_notice(const char *msg);
 bool screens_show(int index);
 
 int screens_active(void);
+
+// How drawing has gone since the last call: screen refreshes, their total and longest time, and
+// the pixels drawn. For GET /api/status: a slow panel or build shows up here as numbers.
+void screens_render_stats(int *frames, int *total_ms, int *max_ms, int *pixels_k);

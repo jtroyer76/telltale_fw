@@ -1,8 +1,8 @@
 // lvgl_port_dsi.c — LVGL 8 on a MIPI-DSI video-mode panel (ESP32-P4). Implements lvgl_port.h for
 // boards whose panel is not RGB; lvgl_port.c is the RGB one.
 //
-// LVGL draws into one strip buffer in PSRAM and each flush is copied into the panel's frame buffer by
-// the DSI driver. LVGL waits for that copy to finish before it reuses the strip.
+// LVGL draws into one strip buffer in internal RAM and each flush is copied into the panel's frame
+// buffer (PSRAM) by the DSI driver. LVGL waits for that copy to finish before it reuses the strip.
 
 #include "lvgl_port.h"
 
@@ -18,7 +18,9 @@
 
 static const char *TAG = "lv_port";
 
-#define STRIP_LINES 100   // height of the LVGL draw buffer
+// Height of the LVGL draw buffer. 32 lines (64 KB) in internal RAM: measured against 100 lines in
+// PSRAM, a full-screen redraw took a third less time (SPEC §3.5).
+#define STRIP_LINES 32
 
 static SemaphoreHandle_t s_mux;
 static lv_disp_drv_t s_disp_drv;
@@ -40,7 +42,7 @@ static esp_err_t display_init(esp_lcd_panel_handle_t panel)
 {
     static lv_disp_draw_buf_t draw_buf;
     size_t px = BOARD_H_RES * STRIP_LINES;
-    void *buf = heap_caps_aligned_calloc(64, px, sizeof(lv_color_t), MALLOC_CAP_SPIRAM);
+    void *buf = heap_caps_aligned_calloc(64, px, sizeof(lv_color_t), MALLOC_CAP_INTERNAL | MALLOC_CAP_DMA);
     if (!buf) return ESP_ERR_NO_MEM;
     lv_disp_draw_buf_init(&draw_buf, buf, NULL, px);
 
