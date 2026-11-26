@@ -101,7 +101,15 @@ Bring-up notes:
 
 Tested on the board, 2026-11-25: first boot with no resets; WiFi joined with `wifi_drops` 0; Signal K connected with values arriving; both built-in screens fit at 1024×600 (screenshots from the device); update over WiFi restarted into the other app slot. After that update: `free_internal` 277543, `free_dma` 237927, `largest_dma` 116736, `min_free_dma` 198928, `free_psram` 31797268.
 
-**Not tested yet:** what the panel itself shows (colours, tearing, flicker during an update), touch input, the setup hotspot from a phone, and a 30-minute WiFi run.
+Tested on the board, 2026-11-26:
+
+- **Panel (by eye):** colours right, no tearing.
+- **Touch:** swipes change screens, the gear opens Settings, and its Change button brings up the setup screen with its QR codes.
+- **WiFi:** `wifi_drops` 0 after 11 h 17 min up (`uptime_s` 40636). It read 1 after the setup screen had been opened and closed.
+- **Memory:** after the setup screen had been opened and closed, `min_free_dma` 133472 (lowest since boot) and `largest_dma` 81920.
+- **`examples/sailboat.json`:** the screens looked at fit at 1024×600 (device screenshots of three of its five); the `tide` widget fetched through the server's redirect and drew its curve.
+
+**Not tested yet:** flicker during an update, and joining the setup hotspot from a phone (the hotspot's name, its page, saving WiFi there).
 
 ## 4. Design rules
 
