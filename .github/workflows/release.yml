@@ -1,5 +1,7 @@
-# On a version tag (v*): build, run the host tests, publish a GitHub release with the firmware,
-# and put the web flasher (site/) with that firmware on GitHub Pages.
+# On a version tag (v*): build every board, run the host tests, publish a GitHub release with the
+# firmware, and put the web flasher (site/) with that firmware on GitHub Pages.
+# Run by hand (workflow_dispatch) it does the same without the release: it still replaces the
+# public web flasher with a build of that commit.
 # The firmware has no credentials in it: WiFi and the device password are set on the device
 # (docs/SPEC.md §5.6). src/secrets.h is gitignored, so it is never in this build.
 name: release
@@ -19,7 +21,49 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # The ESP32-P4 board builds with another PlatformIO platform, in its own PlatformIO home
+  # (docs/SPEC.md §3.5), so it has its own job and hands its files to `build`.
+  crowpanel101:
+    runs-on: ubuntu-latest
+    env:
+      PLATFORMIO_CORE_DIR: /home/runner/.platformio-p4
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0          # git describe gives the firmware its version
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - uses: actions/cache@v6
+        with:
+          path: /home/runner/.platformio-p4
+          key: pio-p4-${{ hashFiles('platformio.ini', 'dependencies.lock.esp32p4') }}
+
+      - name: Install PlatformIO (pioarduino)
+        run: pip install pioarduino
+
+      - name: No credentials in the build
+        run: test ! -e src/secrets.h
+
+      - name: Build
+        run: pio run -e crowpanel101
+
+      - name: Collect
+        run: |
+          B=.pio/build/crowpanel101
+          mkdir out
+          cp $B/bootloader.bin $B/partitions.bin $B/ota_data_initial.bin $B/firmware.bin out/
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: crowpanel101
+          path: out
+          if-no-files-found: error
+
   build:
+    needs: crowpanel101
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -47,18 +91,30 @@ jobs:
       - name: Host tests
         run: sh test/host/run.sh
 
+      - uses: actions/download-artifact@v8
+        with:
+          name: crowpanel101
+          path: crowpanel101
+
       - name: Package
         run: |
           VER=$(git describe --tags --always)
+          mkdir -p dist site/firmware/lcd7 site/firmware/crowpanel101
+          # Per board: the four parts for the web flasher, one file for esptool (write it at 0x0 on
+          # a fresh board), and the app alone for updates over WiFi (tools/ota_upload.py, or POST /ota).
+          # The bootloader's place in flash depends on the chip: 0x0 on the ESP32-S3, 0x2000 on the ESP32-P4.
           B=.pio/build/lcd7
-          mkdir -p dist site/firmware
-          cp $B/bootloader.bin $B/partitions.bin $B/ota_data_initial.bin $B/firmware.bin site/firmware/
-          # One file for esptool: write it at 0x0 on a fresh board
-          python -m esptool --chip esp32s3 merge_bin -o dist/telltale-$VER-full.bin \
+          cp $B/bootloader.bin $B/partitions.bin $B/ota_data_initial.bin $B/firmware.bin site/firmware/lcd7/
+          python -m esptool --chip esp32s3 merge_bin -o dist/telltale-$VER-lcd7-full.bin \
             --flash_mode dio --flash_freq 80m --flash_size 8MB \
             0x0 $B/bootloader.bin 0x8000 $B/partitions.bin 0xf000 $B/ota_data_initial.bin 0x20000 $B/firmware.bin
-          # The app alone: for updates over WiFi (tools/ota_upload.py, or POST /ota)
-          cp $B/firmware.bin dist/telltale-$VER-update.bin
+          cp $B/firmware.bin dist/telltale-$VER-lcd7-update.bin
+          B=crowpanel101
+          cp $B/bootloader.bin $B/partitions.bin $B/ota_data_initial.bin $B/firmware.bin site/firmware/crowpanel101/
+          python -m esptool --chip esp32p4 merge_bin -o dist/telltale-$VER-crowpanel101-full.bin \
+            --flash_mode dio --flash_freq 80m --flash_size 16MB \
+            0x2000 $B/bootloader.bin 0x8000 $B/partitions.bin 0xf000 $B/ota_data_initial.bin 0x20000 $B/firmware.bin
+          cp $B/firmware.bin dist/telltale-$VER-crowpanel101-update.bin
           sed "s/@VERSION@/$VER/" site/manifest.template.json > site/firmware/manifest.json
           rm site/manifest.template.json
           echo "VER=$VER" >> $GITHUB_ENV

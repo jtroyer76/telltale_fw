@@ -211,11 +211,13 @@ Settings that belong to one display rather than to its screens live in NVS, not 
 - **Buttons:** Show (the password), Change WiFi, Restart, Close.
 - **No typing on the display:** it has no keyboard. Anything typed is done on a phone.
 
-**Release** (`.github/workflows/release.yml`, on a `v*` tag): builds without `secrets.h`, runs the host tests, and publishes a GitHub release with two files:
-- `telltale-<ver>-full.bin`: everything, written at `0x0`.
-- `telltale-<ver>-update.bin`: the app alone, for updates over WiFi.
+**Release** (`.github/workflows/release.yml`, on a `v*` tag): builds without `secrets.h`, runs the host tests, and publishes a GitHub release with two files for each board (`lcd7`, `crowpanel101`):
+- `telltale-<ver>-<board>-full.bin`: everything, written at `0x0`. (On the ESP32-P4 the bootloader sits at `0x2000`; the file is padded in front of it.)
+- `telltale-<ver>-<board>-update.bin`: the app alone, for updates over WiFi. The device refuses an image built for another chip.
 
-The same run deploys the web flasher (`site/`, ESP Web Tools 10.4.0) to GitHub Pages, with the firmware copied into the site because release downloads don't allow cross-origin reads. Installing without erasing keeps a display's settings and screens.
+Up to v0.1.2 there was one board and the files had no board in their names. The CrowPanel builds in its own job (another PlatformIO platform and home, §3.5) and hands its files to the job that packages.
+
+The same run deploys the web flasher (`site/`, ESP Web Tools 10.4.0) to GitHub Pages, with the firmware copied into the site because release downloads don't allow cross-origin reads. Its manifest has one build per chip family (`ESP32-S3`, `ESP32-P4`), and the installer picks by the chip it finds, so two boards with the same chip would need another way to choose. ESP Web Tools 10.4.0 lists `ESP32-P4` as a chip family (its type definitions, read 2026-11-26); **(verify)** an install on the CrowPanel from the web flasher, not tried yet. Installing without erasing keeps a display's settings and screens.
 
 Tested on the desk (2026-10-28):
 - **Phone flow (owner's phone):** joined the hotspot, the setup page opened, Save and restart worked, and the display rejoined WiFi and Signal K with the saved settings.
