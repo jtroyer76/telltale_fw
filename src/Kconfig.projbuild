@@ -1,3 +1,22 @@
+menu "Telltale"
+
+    choice TELLTALE_BOARD
+        prompt "Board"
+        default TELLTALE_BOARD_CROWPANEL101 if IDF_TARGET_ESP32P4
+        default TELLTALE_BOARD_LCD7
+        help
+            The board profile compiled in (src/board/). One PlatformIO env per board.
+
+        config TELLTALE_BOARD_LCD7
+            bool "Waveshare ESP32-S3-Touch-LCD-7"
+            depends on IDF_TARGET_ESP32S3
+        config TELLTALE_BOARD_CROWPANEL101
+            bool "Elecrow CrowPanel Advanced 10.1 ESP32-P4"
+            depends on IDF_TARGET_ESP32P4
+    endchoice
+
+endmenu
+
 menu "Example Configuration"
 
     menu "Display"

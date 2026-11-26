@@ -72,6 +72,37 @@ A bulkhead visible from where people come and go. Near a companionway the enclos
 
 Each new board is a new profile (§5.1). No screen config changes. How to add one, and what the PR must show: [ADDING_A_BOARD.md](ADDING_A_BOARD.md).
 
+### 3.5 Second board profile: Elecrow CrowPanel Advanced 10.1" ESP32-P4
+
+Hardware **V1.2** (the revision is printed on the PCB; V1.3 has the same circuit, V1.0 and V2.0 differ and are not supported). Sources, all read 2026-11-25: Elecrow's repository `Elecrow-RD/CrowPanel-Advanced-10.1inch-ESP32-P4-HMI-AI-Display-1024x600-IPS-Touch-Screen` (the V1.2 Eagle schematic, the V1.1/V1.2 ESP-IDF lessons and their `sdkconfig`), and the board on hand. "Board" means read from the device itself.
+
+| Item | Value | Source |
+|---|---|---|
+| Main chip | ESP32-P4, revision v1.3, 16 MB flash, 32 MB PSRAM at 200 MHz | Board (esptool, boot log) |
+| WiFi | The P4 has no radio. An ESP32-C6-MINI-1 runs esp-hosted and is reached over 4-bit SDIO: CLK GPIO18, CMD 19, D0–D3 17/16/15/14, C6 enable on GPIO32 | Schematic; lesson 17 `sdkconfig`; board (link comes up) |
+| C6 firmware | esp-hosted 2.12.0 as shipped. The host library is pinned to the same minor version (`src/idf_component.yml`) | Board (boot log) |
+| Display | 10.1" IPS, 1024×600, MIPI-DSI, EK79007 controller, 2 data lanes at 900 Mbps, 51 MHz pixel clock, porches 160/70/160 and 23/10/12 | Lesson 7; board (driver initialises) |
+| Touch | GT911 on I2C, SDA GPIO45, SCL GPIO46, reset GPIO40, interrupt GPIO42 (not used: polled) | Schematic; lesson 5; board (GT911 answers) |
+| Backlight | MT9201 LED driver, enable and PWM on GPIO31 (30 kHz). GPIO29 is a power gate in the schematic, but its MOSFET (Q11) is unpopulated and a 0R link (R184) feeds the driver, so it is not driven | Schematic; lesson 7 |
+| USB | UART0 through a CH340K for flashing and logs; a second USB-C for power or USB 2.0 | Schematic; board |
+| Power | 5 V ±5 %, 5.5 V max, 2 A max, on either USB-C or the 4-pin 5 V connector; the inputs are diode-ORed. Elecrow gives 8–10 W with the screen on **(verify: not measured)** | Elecrow product manual; schematic |
+| Battery | PH2.0 connector for a single Li cell. It feeds the main rail through a MOSFET with no boost converter; a TP4059 charges it from 5 V at up to 430 mA. No low-voltage cutoff on the board: the cell needs its own protection | Schematic; Elecrow product manual |
+
+Not used: the camera connector, SD slot, microphone, speaker amplifier and the socket for LoRa or nRF24 modules.
+
+Bring-up notes:
+
+- **Toolchain.** The pinned PlatformIO platform has no ESP32-P4 support, so this board's env uses the pioarduino fork of it. That platform installs its own packages into the PlatformIO home it runs in and removes ones it doesn't expect: run in the default home it broke the PlatformIO install for the first board. Build this env with a separate `PLATFORMIO_CORE_DIR` and the `pio` that pioarduino installs there (README, Building). ESP-IDF's tools refuse to run from a Git Bash (MSYS) shell on Windows.
+- **esp-hosted start-up.** The library starts its SDIO link from a constructor and relies on being linked as a whole archive. PlatformIO's link step drops it, and `esp_wifi_init()` fails with "Transport not initialized". `board_crowpanel101.c` calls `esp_hosted_init()` itself.
+- **Hotspot name.** `esp_read_mac(ESP_MAC_WIFI_SOFTAP)` fails on a chip with no radio; there the name comes from the coprocessor's address (`wifi.c`).
+- **Elecrow's code is not used.** Their lessons carry no license. Pins and timings are facts taken from them and from the schematic; the board file and the DSI display layer (`lvgl_port_dsi.c`) are written for this project.
+- **Elecrow's own notes disagree in places.** The lesson 17 `sdkconfig.defaults` still has the V1.0 SDIO pins; the generated `sdkconfig` and the schematic have the V1.2 ones used here. The schematic routes the panel's reset to GPIO41 but their code leaves it unused, as does this profile.
+- **USB serial.** Reading the whole flash back over the CH340K failed with corrupt data at 460800 and 921600 baud; flashing at the default 460800 verifies.
+
+Tested on the board, 2026-11-25: first boot with no resets; WiFi joined with `wifi_drops` 0; Signal K connected with values arriving; both built-in screens fit at 1024×600 (screenshots from the device); update over WiFi restarted into the other app slot. After that update: `free_internal` 277543, `free_dma` 237927, `largest_dma` 116736, `min_free_dma` 198928, `free_psram` 31797268.
+
+**Not tested yet:** what the panel itself shows (colours, tearing, flicker during an update), touch input, the setup hotspot from a phone, and a 30-minute WiFi run.
+
 ## 4. Design rules
 
 - No Signal K path, label, colour, threshold or position in code. If code needs one, it comes from config or Signal K metadata.
@@ -94,7 +125,7 @@ Each new board is a new profile (§5.1). No screen config changes. How to add on
 
 ### 5.1 Board profile (compiled in)
 
-One header plus one PlatformIO env per board: panel timing, pins, touch, expander, backlight, resolution. Exposes resolution and capabilities (touch yes/no, SD yes/no) to the rest of the firmware.
+One file plus one PlatformIO env per board: panel timing, pins, touch, expander, backlight, resolution. The board is a build-time choice (`CONFIG_TELLTALE_BOARD_*` in `src/Kconfig.projbuild`, defaulting from the chip), `src/CMakeLists.txt` compiles only that board's files, and chip-specific settings live in `sdkconfig.defaults.<chip>`. Exposes resolution and capabilities (touch yes/no, SD yes/no) to the rest of the firmware.
 
 ### 5.2 Signal K client
 
