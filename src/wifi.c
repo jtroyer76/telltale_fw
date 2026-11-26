@@ -12,6 +12,7 @@
 #include "esp_random.h"
 #include "esp_timer.h"
 #include "esp_wifi.h"
+#include "soc/soc_caps.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
 #include "freertos/task.h"
@@ -166,8 +167,12 @@ void wifi_start(const char *hostname)
     ESP_ERROR_CHECK(esp_event_handler_register(WIFI_EVENT, ESP_EVENT_ANY_ID, on_event, NULL));
     ESP_ERROR_CHECK(esp_event_handler_register(IP_EVENT, IP_EVENT_STA_GOT_IP, on_event, NULL));
 
-    uint8_t mac[6];
+    uint8_t mac[6] = { 0 };
+#if SOC_WIFI_SUPPORTED
     esp_read_mac(mac, ESP_MAC_WIFI_SOFTAP);
+#else   // no radio of its own (ESP32-P4): the address of the WiFi coprocessor
+    esp_wifi_get_mac(WIFI_IF_AP, mac);
+#endif
     snprintf(s_ap_ssid, sizeof(s_ap_ssid), "Telltale-%02X%02X", mac[4], mac[5]);
     for (int i = 0; i < AP_PW_LEN; i++) s_ap_pass[i] = AP_PW_CHARS[esp_random() % (sizeof(AP_PW_CHARS) - 1)];
     s_ap_pass[AP_PW_LEN] = '\0';

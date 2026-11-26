@@ -1,5 +1,13 @@
+# One board profile per build (CONFIG_TELLTALE_BOARD_*, src/Kconfig.projbuild): the others' files are left out.
+if(CONFIG_TELLTALE_BOARD_CROWPANEL101)
+    set(other_boards "board/board_lcd7.c" "board/lvgl_port.c")
+else()
+    set(other_boards "board/board_crowpanel101.c" "board/lvgl_port_dsi.c")
+endif()
+
 idf_component_register(
     SRC_DIRS "." "board" "fonts"
+    EXCLUDE_SRCS ${other_boards}
     INCLUDE_DIRS "." "board" "fonts"
     EMBED_TXTFILES "../data/default_config.json")
 
