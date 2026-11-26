@@ -6,7 +6,7 @@ Nothing about what is shown is compiled in. Screens, widgets, Signal K paths, un
 
 There's no screen editor: describe the screens you want to an AI coding assistant working in this repo, and it writes the config, checks it against the display, sends it and looks at the result (below, [Changing screens](#changing-screens)).
 
-Status: config API, per-screen Signal K subscriptions with metadata, and screen switching by boat state work on the desk; widgets so far: `value`, `ring`, `bar`, `state`, `alert`, `tide`, `anchor`, `label`. Spec and remaining phases: [docs/SPEC.md](docs/SPEC.md).
+Status: config API, per-screen Signal K subscriptions with metadata, and screen switching by boat state work on the desk; widgets so far: `value` (with an optional trend chart behind the number), `ring`, `bar`, `state`, `alert`, `tide`, `anchor`, `label`. Spec and remaining phases: [docs/SPEC.md](docs/SPEC.md).
 
 ## What it looks like
 

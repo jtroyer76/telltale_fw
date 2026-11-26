@@ -14,6 +14,7 @@
 #define CFG_MAX_JSON      (32 * 1024)
 #define CFG_STATE_LEN     24
 #define CFG_MAX_STATES    8
+#define CFG_MAX_TRENDS    16   // value widgets with a trend, over the whole config
 
 #define CFG_DECIMALS_AUTO  -1   // from Signal K metadata (displayFormat), else 1
 
@@ -55,13 +56,17 @@ typedef struct {
     state_map_t states[CFG_MAX_STATES];
     char notify_prefix[CFG_PATH_LEN];   // alert: under notifications., "" = all
     char api[CFG_PATH_LEN];    // tide: tides API base, e.g. /signalk/v2/api/tides/stations/vessel/default;
-                               // anchor: History API values endpoint, e.g. /signalk/v2/api/history/values ("" = none)
+                               // anchor, value: History API values endpoint, e.g. /signalk/v2/api/history/values ("" = none)
     int hours;                 // tide: hours ahead to show
     char pos_path[CFG_PATH_LEN];      // anchor: the boat's position
     char anchor_path[CFG_PATH_LEN];   // anchor: the anchor's position (null when raised)
     char radius_path[CFG_PATH_LEN];   // anchor: alarm circle radius, m
     char heading_path[CFG_PATH_LEN];  // anchor: heading for the boat mark, rad; "" = a dot
     int trail_min;                    // anchor: minutes of swing trail
+    int trend_min;                    // value: minutes of trend behind the reading, 0 = none; its History
+                                      // API endpoint is in `api` ("" = none)
+    bool trend_has_lo, trend_has_hi;  // value: fixed ends of the trend's scale, SI like the data
+    double trend_lo, trend_hi;
 } widget_cfg_t;
 
 typedef struct {
